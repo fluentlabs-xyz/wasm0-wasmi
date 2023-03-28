@@ -1,3 +1,7 @@
+use core::cmp::{self};
+
+use wasmi_core::{Pages, UntypedValue};
+
 use crate::{
     core::TrapCode,
     engine::{
@@ -16,22 +20,21 @@ use crate::{
         cache::InstanceCache,
         code_map::{CodeMap, InstructionPtr},
         config::FuelCosts,
-        stack::{CallStack, ValueStackPtr},
         DropKeep,
         FuncFrame,
+        stack::{CallStack, ValueStackPtr},
         ValueStack,
     },
-    func::FuncEntity,
-    table::TableEntity,
     FuelConsumptionMode,
     Func,
+    func::FuncEntity,
     FuncRef,
     Instance,
     StoreInner,
     Table,
+    table::TableEntity,
 };
-use core::cmp::{self};
-use wasmi_core::{Pages, UntypedValue};
+use crate::engine::tracer::Tracer;
 
 /// The outcome of a Wasm execution.
 ///
@@ -96,13 +99,14 @@ pub fn execute_wasm<'engine>(
     value_stack: &'engine mut ValueStack,
     call_stack: &'engine mut CallStack,
     code_map: &'engine CodeMap,
+    tracer: &'engine mut Tracer,
 ) -> Result<WasmOutcome, TrapCode> {
-    Executor::new(ctx, cache, value_stack, call_stack, code_map).execute()
+    Executor::new(ctx, cache, value_stack, call_stack, code_map, tracer).execute()
 }
 
 /// The function signature of Wasm load operations.
 type WasmLoadOp =
-    fn(memory: &[u8], address: UntypedValue, offset: u32) -> Result<UntypedValue, TrapCode>;
+fn(memory: &[u8], address: UntypedValue, offset: u32) -> Result<UntypedValue, TrapCode>;
 
 /// The function signature of Wasm store operations.
 type WasmStoreOp = fn(
@@ -163,6 +167,8 @@ struct Executor<'ctx, 'engine> {
     ///
     /// This is used to lookup Wasm function information.
     code_map: &'engine CodeMap,
+    /// A tracer.
+    tracer: &'ctx mut Tracer,
 }
 
 macro_rules! forward_call {
@@ -189,6 +195,7 @@ impl<'ctx, 'engine> Executor<'ctx, 'engine> {
         value_stack: &'engine mut ValueStack,
         call_stack: &'engine mut CallStack,
         code_map: &'engine CodeMap,
+        tracer: &'ctx mut Tracer,
     ) -> Self {
         let frame = call_stack.pop().expect("must have frame on the call stack");
         let sp = value_stack.stack_ptr();
@@ -201,6 +208,7 @@ impl<'ctx, 'engine> Executor<'ctx, 'engine> {
             value_stack,
             call_stack,
             code_map,
+            tracer,
         }
     }
 
@@ -209,7 +217,14 @@ impl<'ctx, 'engine> Executor<'ctx, 'engine> {
     fn execute(mut self) -> Result<WasmOutcome, TrapCode> {
         use Instruction as Instr;
         loop {
-            match *self.ip.get() {
+            let instr = *self.ip.get();
+
+            // handle pre-instruction state
+            let len = self.value_stack.stack_len();
+            let stack_snapshot = self.value_stack.peek_as_slice_mut(len).to_vec();
+            self.tracer.pre_opcode_state(self.ip.pc(), instr, stack_snapshot);
+
+            match instr {
                 Instr::LocalGet { local_depth } => self.visit_local_get(local_depth),
                 Instr::LocalSet { local_depth } => self.visit_local_set(local_depth),
                 Instr::LocalTee { local_depth } => self.visit_local_tee(local_depth),
@@ -464,10 +479,14 @@ impl<'ctx, 'engine> Executor<'ctx, 'engine> {
         &mut self,
         offset: Offset,
         store_wrap: WasmStoreOp,
+        len: u32,
     ) -> Result<(), TrapCode> {
         let (address, value) = self.sp.pop2();
         let memory = self.cache.default_memory_bytes(self.ctx);
         store_wrap(memory, address, offset.into_inner(), value)?;
+        self.ip.offset(0);
+        let address = u32::from(address);
+        self.tracer.memory_change(address, len, &memory[address as usize..(address + len) as usize]);
         self.try_next_instr()
     }
 
@@ -610,8 +629,8 @@ impl<'ctx, 'engine> Executor<'ctx, 'engine> {
         delta: impl FnOnce(&FuelCosts) -> u64,
         exec: impl FnOnce(&mut Self) -> Result<T, E>,
     ) -> Result<T, E>
-    where
-        E: From<TrapCode>,
+        where
+            E: From<TrapCode>,
     {
         match self.get_fuel_consumption_mode() {
             None => exec(self),
@@ -634,8 +653,8 @@ impl<'ctx, 'engine> Executor<'ctx, 'engine> {
         delta: impl FnOnce(&FuelCosts) -> u64,
         exec: impl FnOnce(&mut Self) -> Result<T, E>,
     ) -> Result<T, E>
-    where
-        E: From<TrapCode>,
+        where
+            E: From<TrapCode>,
     {
         let delta = delta(self.fuel_costs());
         match mode {
@@ -660,8 +679,8 @@ impl<'ctx, 'engine> Executor<'ctx, 'engine> {
         delta: u64,
         exec: impl FnOnce(&mut Self) -> Result<T, E>,
     ) -> Result<T, E>
-    where
-        E: From<TrapCode>,
+        where
+            E: From<TrapCode>,
     {
         self.ctx.fuel().sufficient_fuel(delta)?;
         let result = exec(self)?;
@@ -684,8 +703,8 @@ impl<'ctx, 'engine> Executor<'ctx, 'engine> {
         delta: u64,
         exec: impl FnOnce(&mut Self) -> Result<T, E>,
     ) -> Result<T, E>
-    where
-        E: From<TrapCode>,
+        where
+            E: From<TrapCode>,
     {
         self.ctx.fuel_mut().consume_fuel(delta)?;
         exec(self)
@@ -980,6 +999,7 @@ impl<'ctx, 'engine> Executor<'ctx, 'engine> {
                     .and_then(|memory| memory.get_mut(..n))
                     .ok_or(TrapCode::MemoryOutOfBounds)?;
                 memory.fill(byte);
+                this.tracer.memory_change(offset as u32, n as u32, memory);
                 Ok(())
             },
         )?;
@@ -1005,6 +1025,7 @@ impl<'ctx, 'engine> Executor<'ctx, 'engine> {
                     .and_then(|memory| memory.get(..n))
                     .ok_or(TrapCode::MemoryOutOfBounds)?;
                 data.copy_within(src_offset..src_offset.wrapping_add(n), dst_offset);
+                this.tracer.memory_change(dst_offset as u32, n as u32, data);
                 Ok(())
             },
         )?;
@@ -1033,6 +1054,7 @@ impl<'ctx, 'engine> Executor<'ctx, 'engine> {
                     .and_then(|data| data.get(..n))
                     .ok_or(TrapCode::MemoryOutOfBounds)?;
                 memory.copy_from_slice(data);
+                this.tracer.global_memory(dst_offset as u32, n as u32, memory);
                 Ok(())
             },
         )?;
@@ -1230,31 +1252,31 @@ impl<'ctx, 'engine> Executor<'ctx, 'engine> {
 }
 
 macro_rules! impl_visit_store {
-    ( $( fn $visit_ident:ident($untyped_ident:ident); )* ) => {
+    ( $( fn $visit_ident:ident($untyped_ident:ident, $type_size:literal); )* ) => {
         $(
             #[inline(always)]
             fn $visit_ident(
                 &mut self,
                 offset: Offset,
             ) -> Result<(), TrapCode> {
-                self.execute_store_wrap(offset, UntypedValue::$untyped_ident)
+                self.execute_store_wrap(offset, UntypedValue::$untyped_ident, $type_size)
             }
         )*
     }
 }
 impl<'ctx, 'engine> Executor<'ctx, 'engine> {
     impl_visit_store! {
-        fn visit_i32_store(i32_store);
-        fn visit_i64_store(i64_store);
-        fn visit_f32_store(f32_store);
-        fn visit_f64_store(f64_store);
+        fn visit_i32_store(i32_store, 4);
+        fn visit_i64_store(i64_store, 8);
+        fn visit_f32_store(f32_store, 4);
+        fn visit_f64_store(f64_store, 8);
 
-        fn visit_i32_store_8(i32_store8);
-        fn visit_i32_store_16(i32_store16);
+        fn visit_i32_store_8(i32_store8, 1);
+        fn visit_i32_store_16(i32_store16, 2);
 
-        fn visit_i64_store_8(i64_store8);
-        fn visit_i64_store_16(i64_store16);
-        fn visit_i64_store_32(i64_store32);
+        fn visit_i64_store_8(i64_store8, 1);
+        fn visit_i64_store_16(i64_store16, 2);
+        fn visit_i64_store_32(i64_store32, 4);
     }
 }
 

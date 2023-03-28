@@ -11,6 +11,8 @@ mod func_types;
 mod resumable;
 pub mod stack;
 mod traits;
+pub mod tracer;
+pub mod opcode;
 
 #[cfg(test)]
 mod tests;
@@ -741,6 +743,6 @@ impl<'engine> EngineExecutor<'engine> {
         let value_stack = &mut self.stack.values;
         let call_stack = &mut self.stack.frames;
         let code_map = &self.res.code_map;
-        execute_wasm(store_inner, cache, value_stack, call_stack, code_map).map_err(make_trap)
+        execute_wasm(store_inner, cache, value_stack, call_stack, code_map, &mut ctx.store.tracer).map_err(make_trap)
     }
 }

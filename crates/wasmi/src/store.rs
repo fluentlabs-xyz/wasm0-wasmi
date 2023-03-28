@@ -32,6 +32,7 @@ use core::{
 };
 use wasmi_arena::{Arena, ArenaIndex, GuardedEntity};
 use wasmi_core::TrapCode;
+use crate::engine::tracer::Tracer;
 
 /// A unique store index.
 ///
@@ -81,6 +82,8 @@ pub struct Store<T> {
     trampolines: Arena<TrampolineIdx, TrampolineEntity<T>>,
     /// User provided host data owned by the [`Store`].
     data: T,
+    /// Tracer
+    pub tracer: Tracer,
 }
 
 /// The inner store that owns all data not associated to the host state.
@@ -691,6 +694,7 @@ impl<T> Store<T> {
             inner: StoreInner::new(engine),
             trampolines: Arena::new(),
             data,
+            tracer: Tracer::default(),
         }
     }
 

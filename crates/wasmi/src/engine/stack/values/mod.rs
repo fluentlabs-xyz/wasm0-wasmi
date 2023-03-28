@@ -95,6 +95,10 @@ impl ValueStack {
         self.base_ptr().into_add(self.stack_ptr)
     }
 
+    pub fn stack_len(&self) -> usize {
+        self.stack_ptr
+    }
+
     /// Returns the base [`ValueStackPtr`] of `self`.
     ///
     /// The returned [`ValueStackPtr`] points to the first value on the [`ValueStack`].
