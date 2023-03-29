@@ -22,6 +22,20 @@ pub use self::utils::{
 use core::fmt::Debug;
 use wasmi_core::UntypedValue;
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub struct InstrMeta(pub usize, pub u8);
+
+impl InstrMeta {
+
+    pub fn source_pc(&self) -> u32 {
+        self.0 as u32
+    }
+
+    pub fn opcode(&self) -> u8 {
+        self.1 as u8
+    }
+}
+
 /// The internal `wasmi` bytecode that is stored for Wasm functions.
 ///
 /// # Note

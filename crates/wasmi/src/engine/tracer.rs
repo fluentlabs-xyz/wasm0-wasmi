@@ -5,7 +5,7 @@ use serde::ser::SerializeStruct;
 
 use wasmi_core::UntypedValue;
 
-use crate::engine::bytecode::Instruction;
+use crate::engine::bytecode::{InstrMeta, Instruction};
 use crate::engine::opcode::OpCode;
 
 #[derive(Debug)]
@@ -31,13 +31,17 @@ pub struct OpCodeState {
     pub opcode: OpCode,
     pub memory_changes: Vec<MemoryState>,
     pub stack: Vec<u64>,
+    pub source_pc: u32,
+    pub code: u8,
 }
 
 impl Serialize for OpCodeState {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
         let mut s = serializer.serialize_struct("OpCodeState", 4)?;
         s.serialize_field("pc", &self.program_counter)?;
-        s.serialize_field("opcode", self.opcode.name())?;
+        s.serialize_field("source_pc", &self.source_pc)?;
+        s.serialize_field("name", self.opcode.name())?;
+        s.serialize_field("opcode", &self.code)?;
         if let Some(drop_keep) = self.opcode.drop_keep() {
             s.serialize_field("stack_drop", &drop_keep.drop())?;
             s.serialize_field("stack_keep", &drop_keep.keep())?;
@@ -90,6 +94,7 @@ impl Tracer {
         program_counter: u32,
         opcode: Instruction,
         stack: Vec<UntypedValue>,
+        meta: &InstrMeta,
     ) {
         let memory_changes = self.memory_changes.replace(Vec::new());
         let stack = stack
@@ -101,6 +106,8 @@ impl Tracer {
             opcode: OpCode(opcode),
             memory_changes,
             stack,
+            source_pc: meta.source_pc(),
+            code: meta.opcode(),
         });
     }
 

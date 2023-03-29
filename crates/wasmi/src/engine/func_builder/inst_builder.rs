@@ -7,6 +7,7 @@ use crate::engine::{
     FuncBody,
 };
 use alloc::vec::Vec;
+use crate::engine::bytecode::InstrMeta;
 
 /// A reference to an instruction of the partially
 /// constructed function body of the [`InstructionsBuilder`].
@@ -162,9 +163,11 @@ impl InstructionsBuilder {
         engine: &Engine,
         len_locals: usize,
         max_stack_height: usize,
+        metas: Vec<InstrMeta>,
     ) -> FuncBody {
         self.update_branch_offsets();
-        engine.alloc_func_body(len_locals, max_stack_height, self.insts.drain(..))
+        assert_eq!(self.insts.len(), metas.len());
+        engine.alloc_func_body(len_locals, max_stack_height, self.insts.drain(..), metas)
     }
 
     /// Updates the branch offsets of all branch instructions inplace.

@@ -58,6 +58,7 @@ use alloc::{sync::Arc, vec::Vec};
 use core::sync::atomic::{AtomicU32, Ordering};
 use spin::{Mutex, RwLock};
 use wasmi_arena::{ArenaIndex, GuardedEntity};
+use crate::engine::bytecode::InstrMeta;
 
 /// A unique engine index.
 ///
@@ -159,13 +160,14 @@ impl Engine {
         len_locals: usize,
         max_stack_height: usize,
         insts: I,
+        metas: Vec<InstrMeta>,
     ) -> FuncBody
     where
         I: IntoIterator<Item = Instruction>,
         I::IntoIter: ExactSizeIterator,
     {
         self.inner
-            .alloc_func_body(len_locals, max_stack_height, insts)
+            .alloc_func_body(len_locals, max_stack_height, insts, metas)
     }
 
     /// Resolves the [`FuncBody`] to the underlying `wasmi` bytecode instructions.
@@ -368,7 +370,7 @@ impl EngineInner {
         self.res.write().func_types.alloc_func_type(func_type)
     }
 
-    fn alloc_func_body<I>(&self, len_locals: usize, max_stack_height: usize, insts: I) -> FuncBody
+    fn alloc_func_body<I>(&self, len_locals: usize, max_stack_height: usize, insts: I, metas: Vec<InstrMeta>) -> FuncBody
     where
         I: IntoIterator<Item = Instruction>,
         I::IntoIter: ExactSizeIterator,
@@ -376,7 +378,7 @@ impl EngineInner {
         self.res
             .write()
             .code_map
-            .alloc(len_locals, max_stack_height, insts)
+            .alloc(len_locals, max_stack_height, insts, metas)
     }
 
     fn resolve_func_type<F, R>(&self, func_type: &DedupFuncType, f: F) -> R

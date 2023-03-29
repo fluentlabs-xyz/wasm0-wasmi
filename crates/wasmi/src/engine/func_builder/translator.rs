@@ -1,18 +1,9 @@
-use super::{
-    control_frame::{
-        BlockControlFrame,
-        ControlFrame,
-        IfControlFrame,
-        LoopControlFrame,
-        UnreachableControlFrame,
-    },
-    labels::LabelRef,
-    locals_registry::LocalsRegistry,
-    value_stack::ValueStackHeight,
-    ControlFlowStack,
-    InstructionsBuilder,
-    TranslationError,
-};
+use alloc::vec::Vec;
+use std::cell::RefCell;
+
+use wasmi_core::{F32, F64, ValueType};
+use wasmparser::VisitOperator;
+
 use crate::{
     engine::{
         bytecode::{
@@ -26,31 +17,45 @@ use crate::{
             TableIdx,
         },
         config::FuelCosts,
-        func_builder::control_frame::ControlFrameKind,
         DropKeep,
+        func_builder::control_frame::ControlFrameKind,
         FuncBody,
         Instr,
         RelativeDepth,
     },
+    Engine,
+    FuncType,
+    GlobalType,
     module::{
         BlockType,
         ConstExpr,
+        DEFAULT_MEMORY_INDEX,
         FuncIdx,
         FuncTypeIdx,
         GlobalIdx,
         MemoryIdx,
         ModuleResources,
-        DEFAULT_MEMORY_INDEX,
     },
-    Engine,
-    FuncType,
-    GlobalType,
     Mutability,
     Value,
 };
-use alloc::vec::Vec;
-use wasmi_core::{ValueType, F32, F64};
-use wasmparser::VisitOperator;
+use crate::engine::bytecode::InstrMeta;
+
+use super::{
+    control_frame::{
+        BlockControlFrame,
+        ControlFrame,
+        IfControlFrame,
+        LoopControlFrame,
+        UnreachableControlFrame,
+    },
+    ControlFlowStack,
+    InstructionsBuilder,
+    labels::LabelRef,
+    locals_registry::LocalsRegistry,
+    TranslationError,
+    value_stack::ValueStackHeight,
+};
 
 /// Reusable allocations of a [`FuncTranslator`].
 #[derive(Debug, Default)]
@@ -103,6 +108,8 @@ pub struct FuncTranslator<'parser> {
     locals: LocalsRegistry,
     /// The reusable data structures of the [`FuncTranslator`].
     alloc: FuncTranslatorAllocations,
+    /// List with opcode metadata (pos, code)
+    opcode_metadata: RefCell<Vec<InstrMeta>>,
 }
 
 impl<'parser> FuncTranslator<'parser> {
@@ -119,8 +126,9 @@ impl<'parser> FuncTranslator<'parser> {
             stack_height: ValueStackHeight::default(),
             locals: LocalsRegistry::default(),
             alloc,
+            opcode_metadata: RefCell::new(Vec::new()),
         }
-        .init()
+            .init()
     }
 
     /// Returns a shared reference to the underlying [`Engine`].
@@ -166,6 +174,10 @@ impl<'parser> FuncTranslator<'parser> {
         self.locals.register_locals(amount);
     }
 
+    pub fn register_opcode_metadata(&mut self, pos: usize, opcode: u8) {
+        self.opcode_metadata.borrow_mut().push(InstrMeta(pos, opcode));
+    }
+
     /// This informs the [`FuncTranslator`] that the function header translation is finished.
     ///
     /// # Note
@@ -186,6 +198,7 @@ impl<'parser> FuncTranslator<'parser> {
             self.res.engine(),
             self.len_locals(),
             self.stack_height.max_stack_height() as usize,
+            self.opcode_metadata.replace(Vec::new()),
         );
         Ok(func_body)
     }
@@ -276,8 +289,8 @@ impl<'parser> FuncTranslator<'parser> {
     ///
     /// Ignores the `translator` closure if the current code path is unreachable.
     fn translate_if_reachable<F>(&mut self, translator: F) -> Result<(), TranslationError>
-    where
-        F: FnOnce(&mut Self) -> Result<(), TranslationError>,
+        where
+            F: FnOnce(&mut Self) -> Result<(), TranslationError>,
     {
         if self.is_reachable() {
             translator(self)?;
@@ -358,7 +371,7 @@ impl<'parser> FuncTranslator<'parser> {
             drop_keep.drop() + len_params_locals,
             drop_keep.keep(),
         )
-        .map_err(Into::into)
+            .map_err(Into::into)
     }
 
     /// Returns the relative depth on the stack of the local variable.
@@ -520,8 +533,8 @@ impl<'parser> FuncTranslator<'parser> {
     /// - `f32.const`
     /// - `f64.const`
     fn translate_const<T>(&mut self, value: T) -> Result<(), TranslationError>
-    where
-        T: Into<Value>,
+        where
+            T: Into<Value>,
     {
         self.translate_if_reachable(|builder| {
             builder.bump_fuel_consumption(builder.fuel_costs().base);

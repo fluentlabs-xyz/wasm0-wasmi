@@ -218,12 +218,14 @@ impl<'ctx, 'engine> Executor<'ctx, 'engine> {
         use Instruction as Instr;
         loop {
             let instr = *self.ip.get();
+            let meta = *self.ip.meta();
 
             // handle pre-instruction state
             self.tracer.pre_opcode_state(
                 self.ip.pc(),
                 instr,
                 self.value_stack.dump_stack(self.sp),
+                &meta,
             );
 
             match instr {
