@@ -8,34 +8,29 @@ package zkwasm_wasmi
 // #cgo darwin,amd64 LDFLAGS: -Wl,-rpath,${SRCDIR}/packaged/lib/darwin-amd64 -L${SRCDIR}/packaged/lib/darwin-amd64
 // #cgo darwin,arm64 LDFLAGS: -Wl,-rpath,${SRCDIR}/packaged/lib/darwin-aarch64 -L${SRCDIR}/packaged/lib/darwin-aarch64
 //
-// const char* execute_wasm_binary_to_json(const char* wasm_binary);
+// #include "packaged/include/wasmi.h"
 import "C"
 
 import (
-	"unsafe"
+    "unsafe"
 
-	"github.com/pkg/errors"
+    _ "embed"
 
-	_ "github.com/wasm0/zkwasm-wasmi/packaged/include"
-	_ "github.com/wasm0/zkwasm-wasmi/packaged/lib"
+    _ "github.com/wasm0/zkwasm-wasmi/packaged/include"
+    _ "github.com/wasm0/zkwasm-wasmi/packaged/lib"
 )
 
-func Inject(wasmBinary []byte) (traceJson []byte, err error) {
-	if wasmBinary == nil {
-		return nil, errors.New("parameter [watStrOrBinaryAsm] must be set")
-	}
-	var argv = make([]C.uchar, len(wasmBinary))
-	for i, item := range wasmBinary {
-		argv[i] = C.uchar(item)
-	}
-	cResultStruct := C.inject_into_utf8_wat_or_binary_wasm_external(&argv[0])
-	if cResultStruct.exit_code != 0 {
-		return nil, errors.New("execution failed")
-	}
-	var sliceRes = unsafe.Slice(cResultStruct.data, int(cResultStruct.len))
-	traceJson = make([]byte, len(sliceRes))
-	for i, v := range sliceRes {
-		traceJson[i] = byte(v)
-	}
-	return
+func ExecuteWasmBinaryToJson(wasmBinary []byte) (traceJson []byte, err error) {
+    cVec, cLen := byteArrayToRawPointer(wasmBinary)
+    res := C.execute_wasm_binary_to_json(cVec, cLen)
+    traceJson = C.GoBytes(unsafe.Pointer(res.ptr), C.int(res.len))
+    return traceJson, nil
+}
+
+func byteArrayToRawPointer(input []byte) (*C.uchar, C.size_t) {
+    var argv = make([]C.uchar, len(input))
+    for i, item := range input {
+        argv[i] = C.uchar(item)
+    }
+    return (*C.uchar)(unsafe.Pointer(&argv[0])), C.size_t(len(input))
 }

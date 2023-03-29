@@ -220,9 +220,11 @@ impl<'ctx, 'engine> Executor<'ctx, 'engine> {
             let instr = *self.ip.get();
 
             // handle pre-instruction state
-            let len = self.value_stack.stack_len();
-            let stack_snapshot = self.value_stack.peek_as_slice_mut(len).to_vec();
-            self.tracer.pre_opcode_state(self.ip.pc(), instr, stack_snapshot);
+            self.tracer.pre_opcode_state(
+                self.ip.pc(),
+                instr,
+                self.value_stack.dump_stack(self.sp),
+            );
 
             match instr {
                 Instr::LocalGet { local_depth } => self.visit_local_get(local_depth),

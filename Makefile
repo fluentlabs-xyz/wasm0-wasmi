@@ -6,7 +6,7 @@ ifneq ($(CARGO_TARGET),)
 CARGO_TARGET_FLAG := --target $(CARGO_TARGET)
 endif
 
-.PHONY: build-apple-amd64 build-apple-aarch64 build-linux-amd64 build
+.PHONY: build-apple-amd64 build-apple-aarch64 build-linux-amd64 build generate-headers
 build-apple-amd64:
 	rustup target add x86_64-apple-darwin
 	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build --target=x86_64-apple-darwin --manifest-path ./crates/c-api/Cargo.toml --release #--no-default-features $(capi_compiler_features)
@@ -24,3 +24,6 @@ build-linux-amd64:
 	cp ./target/x86_64-unknown-linux-gnu/release/libwasmi_c_api.so packaged/lib/linux-amd64/
 
 build: build-apple-amd64 build-apple-aarch64
+
+generate-headers:
+	cargo run --package wasmi_c-api --bin generate-headers --features=headers
