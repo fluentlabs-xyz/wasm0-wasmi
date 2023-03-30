@@ -26,7 +26,7 @@ build-linux-amd64:
 build: build-apple-amd64 build-apple-aarch64 build-linux-amd64
 
 generate-headers:
-	cargo run --package wasmi_c_api_package --bin generate_headers --features=headers
+	cargo run --package wasmi_c_api_crate --bin generate_headers --features=headers
 
 clean:
 	cargo clean

@@ -1253,7 +1253,7 @@ name = "wasmi_arena"
 version = "0.4.0"
 
 [[package]]
-name = "wasmi_c_api_package"
+name = "wasmi_c_api_crate"
 version = "0.1.0"
 dependencies = [
  "safer-ffi",
