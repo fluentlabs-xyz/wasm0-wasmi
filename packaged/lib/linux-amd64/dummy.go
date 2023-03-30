@@ -1,2 +1,2 @@
 // See https://github.com/golang/go/issues/26366
-package linux-amd64
+package linux_amd64

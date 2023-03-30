@@ -4,4 +4,5 @@ package lib
 import (
 	_ "github.com/wasm0/zkwasm-wasmi/packaged/lib/darwin-aarch64"
 	_ "github.com/wasm0/zkwasm-wasmi/packaged/lib/darwin-amd64"
+	_ "github.com/wasm0/zkwasm-wasmi/packaged/lib/linux-amd64"
 )
