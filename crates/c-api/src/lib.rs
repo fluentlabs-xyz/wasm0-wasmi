@@ -5,7 +5,10 @@ use wasmi::{Config, Engine, Linker, Module, Store};
 mod engine;
 
 #[ffi_export]
-extern "C" fn execute_wasm_binary_to_json(wasm_binary: *mut u8, wasm_binary_length: usize) -> repr_c::Vec<u8> {
+extern "C" fn execute_wasm_binary_to_json(
+    wasm_binary: *mut u8,
+    wasm_binary_length: usize
+) -> repr_c::Vec<u8> {
     let wasm_binary = unsafe {
         slice::from_raw_parts(wasm_binary, wasm_binary_length)
     };
@@ -26,11 +29,4 @@ extern "C" fn execute_wasm_binary_to_json(wasm_binary: *mut u8, wasm_binary_leng
     func.call(&mut store, ()).unwrap();
     let json_body = store.tracer.to_json();
     repr_c::Vec::from(json_body.as_bytes().to_vec())
-}
-
-#[cfg(feature = "headers")]
-pub fn generate_headers() -> ::std::io::Result<()> {
-    ::safer_ffi::headers::builder()
-        .to_file("./packaged/include/wasmi.h")?
-        .generate()
 }

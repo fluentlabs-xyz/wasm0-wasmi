@@ -20,17 +20,17 @@ import (
     _ "github.com/wasm0/zkwasm-wasmi/packaged/lib"
 )
 
-func ExecuteWasmBinaryToJson(wasmBinary []byte) (traceJson []byte, err error) {
-    cVec, cLen := byteArrayToRawPointer(wasmBinary)
-    res := C.execute_wasm_binary_to_json(cVec, cLen)
-    traceJson = C.GoBytes(unsafe.Pointer(res.ptr), C.int(res.len))
-    return traceJson, nil
-}
-
 func byteArrayToRawPointer(input []byte) (*C.uchar, C.size_t) {
     var argv = make([]C.uchar, len(input))
     for i, item := range input {
         argv[i] = C.uchar(item)
     }
     return (*C.uchar)(unsafe.Pointer(&argv[0])), C.size_t(len(input))
+}
+
+func ExecuteWasmBinaryToJson(wasmBinary []byte) (traceJson []byte, err error) {
+    cVec, cLen := byteArrayToRawPointer(wasmBinary)
+    res := C.execute_wasm_binary_to_json(cVec, cLen)
+    traceJson = C.GoBytes(unsafe.Pointer(res.ptr), C.int(res.len))
+    return traceJson, nil
 }

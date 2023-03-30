@@ -1,5 +1,5 @@
 [package]
-name = "wasmi_c-api"
+name = "wasmi_c_api_package"
 version = "0.1.0"
 edition = "2021"
 
@@ -15,25 +15,14 @@ wat = "1.0.55"
 headers = ["safer-ffi/headers"]
 
 [lib]
+name = "wasmi_c_api"
 bench = false
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "lib"]
 path = "src/lib.rs"
 
 [[bin]]
-name = "generate-headers"
+name = "generate_headers"
 path = "src/bin/generate-headers.rs"
 required-features = ["headers"]
 test = false
 bench = false
-
-[profile.release]
-opt-level = 1
-debug = false
-debug-assertions = false
-overflow-checks = false
-lto = true
-panic = 'abort'
-incremental = false
-codegen-units = 1
-rpath = false
-strip = true

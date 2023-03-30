@@ -23,7 +23,10 @@ build-linux-amd64:
 	mkdir -p packaged/lib/linux-amd64/
 	cp ./target/x86_64-unknown-linux-gnu/release/libwasmi_c_api.so packaged/lib/linux-amd64/
 
-build: build-apple-amd64 build-apple-aarch64
+build: build-apple-amd64 build-apple-aarch64 build-linux-amd64
 
 generate-headers:
-	cargo run --package wasmi_c-api --bin generate-headers --features=headers
+	cargo run --package wasmi_c_api_package --bin generate_headers --features=headers
+
+clean:
+	cargo clean

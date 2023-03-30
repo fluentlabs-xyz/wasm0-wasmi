@@ -7,8 +7,8 @@
  *                                         *
  *******************************************/
 
-#ifndef __RUST_WASMI_C_API__
-#define __RUST_WASMI_C_API__
+#ifndef __RUST_WASMI_C_API_PACKAGE__
+#define __RUST_WASMI_C_API_PACKAGE__
 
 #ifdef __cplusplus
 extern "C" {
@@ -40,4 +40,4 @@ Vec_uint8_t execute_wasm_binary_to_json (
 } /* extern "C" */
 #endif
 
-#endif /* __RUST_WASMI_C_API__ */
+#endif /* __RUST_WASMI_C_API_PACKAGE__ */
