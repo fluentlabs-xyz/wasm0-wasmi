@@ -1,6 +1,6 @@
 use std::cell::RefCell;
 
-use serde::{Serialize, Serializer};
+use serde::{Deserialize, Serialize, Serializer};
 use serde::ser::SerializeStruct;
 
 use wasmi_core::UntypedValue;
@@ -59,11 +59,19 @@ impl Serialize for OpCodeState {
     }
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct FunctionMeta {
+    pub fn_index: u32,
+    pub max_stack_height: u32,
+    pub num_locals: u32,
+}
+
 #[derive(Default, Debug)]
 pub struct Tracer {
     global_memory: Vec<MemoryState>,
     logs: Vec<OpCodeState>,
     memory_changes: RefCell<Vec<MemoryState>>,
+    fns_meta: Vec<FunctionMeta>,
 }
 
 impl Serialize for Tracer {
@@ -71,6 +79,7 @@ impl Serialize for Tracer {
         let mut s = serializer.serialize_struct("Tracer", 1)?;
         s.serialize_field("global_memory", &self.global_memory)?;
         s.serialize_field("logs", &self.logs)?;
+        s.serialize_field("fn_metas", &self.fns_meta)?;
         s.end()
     }
 }
@@ -109,6 +118,19 @@ impl Tracer {
             source_pc: meta.source_pc(),
             code: meta.opcode(),
         });
+    }
+
+    pub fn function_call(
+        &mut self,
+        fn_index: usize,
+        max_stack_height: usize,
+        num_locals: usize,
+    ) {
+        self.fns_meta.push(FunctionMeta {
+            fn_index: fn_index as u32,
+            max_stack_height: max_stack_height as u32,
+            num_locals: num_locals as u32,
+        })
     }
 
     pub fn memory_change(

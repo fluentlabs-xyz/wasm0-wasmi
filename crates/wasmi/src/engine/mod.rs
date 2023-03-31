@@ -1,21 +1,22 @@
 //! The `wasmi` interpreter.
 
-pub mod bytecode;
-mod cache;
-pub mod code_map;
-mod config;
-pub mod executor;
-mod func_args;
-mod func_builder;
-mod func_types;
-mod resumable;
-pub mod stack;
-mod traits;
-pub mod tracer;
-pub mod opcode;
+use alloc::{sync::Arc, vec::Vec};
+use core::sync::atomic::{AtomicU32, Ordering};
 
-#[cfg(test)]
-mod tests;
+use spin::{Mutex, RwLock};
+
+use wasmi_arena::{ArenaIndex, GuardedEntity};
+
+use crate::{
+    AsContext,
+    AsContextMut,
+    core::{Trap, TrapCode},
+    Func,
+    func::FuncEntity,
+    FuncType,
+    StoreContextMut,
+};
+use crate::engine::bytecode::InstrMeta;
 
 pub use self::{
     bytecode::DropKeep,
@@ -45,20 +46,23 @@ pub(crate) use self::{
     func_args::{FuncFinished, FuncParams, FuncResults},
     func_types::DedupFuncType,
 };
-use crate::{
-    core::{Trap, TrapCode},
-    func::FuncEntity,
-    AsContext,
-    AsContextMut,
-    Func,
-    FuncType,
-    StoreContextMut,
-};
-use alloc::{sync::Arc, vec::Vec};
-use core::sync::atomic::{AtomicU32, Ordering};
-use spin::{Mutex, RwLock};
-use wasmi_arena::{ArenaIndex, GuardedEntity};
-use crate::engine::bytecode::InstrMeta;
+
+pub mod bytecode;
+mod cache;
+pub mod code_map;
+mod config;
+pub mod executor;
+mod func_args;
+mod func_builder;
+mod func_types;
+mod resumable;
+pub mod stack;
+mod traits;
+pub mod tracer;
+pub mod opcode;
+
+#[cfg(test)]
+mod tests;
 
 /// A unique engine index.
 ///
@@ -146,8 +150,8 @@ impl Engine {
     /// - If the deduplicated function type is not owned by the engine.
     /// - If the deduplicated function type cannot be resolved to its entity.
     pub(super) fn resolve_func_type<F, R>(&self, func_type: &DedupFuncType, f: F) -> R
-    where
-        F: FnOnce(&FuncType) -> R,
+        where
+            F: FnOnce(&FuncType) -> R,
     {
         self.inner.resolve_func_type(func_type, f)
     }
@@ -162,9 +166,9 @@ impl Engine {
         insts: I,
         metas: Vec<InstrMeta>,
     ) -> FuncBody
-    where
-        I: IntoIterator<Item = Instruction>,
-        I::IntoIter: ExactSizeIterator,
+        where
+            I: IntoIterator<Item=Instruction>,
+            I::IntoIter: ExactSizeIterator,
     {
         self.inner
             .alloc_func_body(len_locals, max_stack_height, insts, metas)
@@ -213,8 +217,8 @@ impl Engine {
         params: impl CallParams,
         results: Results,
     ) -> Result<<Results as CallResults>::Results, Trap>
-    where
-        Results: CallResults,
+        where
+            Results: CallResults,
     {
         self.inner.execute_func(ctx, func, params, results)
     }
@@ -249,8 +253,8 @@ impl Engine {
         params: impl CallParams,
         results: Results,
     ) -> Result<ResumableCallBase<<Results as CallResults>::Results>, Trap>
-    where
-        Results: CallResults,
+        where
+            Results: CallResults,
     {
         self.inner
             .execute_func_resumable(ctx, func, params, results)
@@ -286,8 +290,8 @@ impl Engine {
         params: impl CallParams,
         results: Results,
     ) -> Result<ResumableCallBase<<Results as CallResults>::Results>, Trap>
-    where
-        Results: CallResults,
+        where
+            Results: CallResults,
     {
         self.inner.resume_func(ctx, invocation, params, results)
     }
@@ -371,9 +375,9 @@ impl EngineInner {
     }
 
     fn alloc_func_body<I>(&self, len_locals: usize, max_stack_height: usize, insts: I, metas: Vec<InstrMeta>) -> FuncBody
-    where
-        I: IntoIterator<Item = Instruction>,
-        I::IntoIter: ExactSizeIterator,
+        where
+            I: IntoIterator<Item=Instruction>,
+            I::IntoIter: ExactSizeIterator,
     {
         self.res
             .write()
@@ -382,8 +386,8 @@ impl EngineInner {
     }
 
     fn resolve_func_type<F, R>(&self, func_type: &DedupFuncType, f: F) -> R
-    where
-        F: FnOnce(&FuncType) -> R,
+        where
+            F: FnOnce(&FuncType) -> R,
     {
         f(self.res.read().func_types.resolve_func_type(func_type))
     }
@@ -404,8 +408,8 @@ impl EngineInner {
         params: impl CallParams,
         results: Results,
     ) -> Result<<Results as CallResults>::Results, Trap>
-    where
-        Results: CallResults,
+        where
+            Results: CallResults,
     {
         let res = self.res.read();
         let mut stack = self.stacks.lock().reuse_or_new();
@@ -423,8 +427,8 @@ impl EngineInner {
         params: impl CallParams,
         results: Results,
     ) -> Result<ResumableCallBase<<Results as CallResults>::Results>, Trap>
-    where
-        Results: CallResults,
+        where
+            Results: CallResults,
     {
         let res = self.res.read();
         let mut stack = self.stacks.lock().reuse_or_new();
@@ -444,9 +448,9 @@ impl EngineInner {
                 Err(trap)
             }
             Err(TaggedTrap::Host {
-                host_func,
-                host_trap,
-            }) => Ok(ResumableCallBase::Resumable(ResumableInvocation::new(
+                    host_func,
+                    host_trap,
+                }) => Ok(ResumableCallBase::Resumable(ResumableInvocation::new(
                 ctx.as_context().store.engine().clone(),
                 *func,
                 host_func,
@@ -463,8 +467,8 @@ impl EngineInner {
         params: impl CallParams,
         results: Results,
     ) -> Result<ResumableCallBase<<Results as CallResults>::Results>, Trap>
-    where
-        Results: CallResults,
+        where
+            Results: CallResults,
     {
         let res = self.res.read();
         let host_func = invocation.host_func();
@@ -480,9 +484,9 @@ impl EngineInner {
                 Err(trap)
             }
             Err(TaggedTrap::Host {
-                host_func,
-                host_trap,
-            }) => {
+                    host_func,
+                    host_trap,
+                }) => {
                 invocation.update(host_func, host_trap);
                 Ok(ResumableCallBase::Resumable(invocation))
             }
@@ -591,8 +595,8 @@ impl<'engine> EngineExecutor<'engine> {
         params: impl CallParams,
         results: Results,
     ) -> Result<<Results as CallResults>::Results, TaggedTrap>
-    where
-        Results: CallResults,
+        where
+            Results: CallResults,
     {
         self.stack.reset();
         self.stack.values.extend(params.call_params());
@@ -600,6 +604,13 @@ impl<'engine> EngineExecutor<'engine> {
             FuncEntity::Wasm(wasm_func) => {
                 self.stack
                     .prepare_wasm_call(wasm_func, &self.res.code_map)?;
+                let fn_index = ctx.as_context().store.inner.unwrap_stored(func.as_inner()).into_usize();
+                let header = self.res.code_map.header(wasm_func.func_body());
+                &ctx.as_context_mut().store.tracer.function_call(
+                    fn_index,
+                    header.max_stack_height(),
+                    header.len_locals(),
+                );
                 self.execute_wasm_func(ctx.as_context_mut())?;
             }
             FuncEntity::Host(host_func) => {
@@ -631,8 +642,8 @@ impl<'engine> EngineExecutor<'engine> {
         params: impl CallParams,
         results: Results,
     ) -> Result<<Results as CallResults>::Results, TaggedTrap>
-    where
-        Results: CallResults,
+        where
+            Results: CallResults,
     {
         self.stack
             .values
@@ -658,8 +669,8 @@ impl<'engine> EngineExecutor<'engine> {
     /// - If the `results` buffer length does not match the remaining amount of stack values.
     #[inline]
     fn write_results_back<Results>(&mut self, results: Results) -> <Results as CallResults>::Results
-    where
-        Results: CallResults,
+        where
+            Results: CallResults,
     {
         results.call_results(self.stack.values.drain())
     }
