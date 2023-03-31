@@ -606,7 +606,7 @@ impl<'engine> EngineExecutor<'engine> {
                     .prepare_wasm_call(wasm_func, &self.res.code_map)?;
                 let fn_index = ctx.as_context().store.inner.unwrap_stored(func.as_inner()).into_usize();
                 let header = self.res.code_map.header(wasm_func.func_body());
-                &ctx.as_context_mut().store.tracer.function_call(
+                ctx.as_context_mut().store.tracer.function_call(
                     fn_index,
                     header.max_stack_height(),
                     header.len_locals(),

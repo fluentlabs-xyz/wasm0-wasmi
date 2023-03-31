@@ -1,6 +1,6 @@
 use std::cell::RefCell;
 
-use serde::{Deserialize, Serialize, Serializer};
+use serde::{Serialize, Serializer};
 use serde::ser::SerializeStruct;
 
 use wasmi_core::UntypedValue;
@@ -59,12 +59,23 @@ impl Serialize for OpCodeState {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug)]
 pub struct FunctionMeta {
     pub fn_index: u32,
     pub max_stack_height: u32,
     pub num_locals: u32,
 }
+
+impl Serialize for FunctionMeta {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
+        let mut s = serializer.serialize_struct("MemoryState", 3)?;
+        s.serialize_field("fn_index", &self.fn_index)?;
+        s.serialize_field("max_stack_height", &self.max_stack_height)?;
+        s.serialize_field("num_locals", &self.num_locals)?;
+        s.end()
+    }
+}
+
 
 #[derive(Default, Debug)]
 pub struct Tracer {
