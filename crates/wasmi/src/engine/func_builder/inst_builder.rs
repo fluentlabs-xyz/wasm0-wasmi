@@ -7,6 +7,7 @@ use crate::engine::{
     FuncBody,
 };
 use alloc::vec::Vec;
+use std::cell::RefCell;
 use crate::engine::bytecode::InstrMeta;
 
 /// A reference to an instruction of the partially
@@ -72,8 +73,11 @@ impl RelativeDepth {
 pub struct InstructionsBuilder {
     /// The instructions of the partially constructed function body.
     insts: Vec<Instruction>,
+    metas: RefCell<Vec<InstrMeta>>,
     /// All labels and their uses.
     labels: LabelRegistry,
+    /// Instruction meta state (pc and opcode number)
+    temp_meta: InstrMeta,
 }
 
 impl InstructionsBuilder {
@@ -129,7 +133,12 @@ impl InstructionsBuilder {
     pub fn push_inst(&mut self, inst: Instruction) -> Instr {
         let idx = self.current_pc();
         self.insts.push(inst);
+        self.metas.borrow_mut().push(self.temp_meta);
         idx
+    }
+
+    pub fn register_meta(&mut self, pc: usize, opcode: u8) {
+        self.temp_meta = InstrMeta(pc, opcode);
     }
 
     /// Try resolving the `label` for the currently constructed instruction.
@@ -163,9 +172,9 @@ impl InstructionsBuilder {
         engine: &Engine,
         len_locals: usize,
         max_stack_height: usize,
-        metas: Vec<InstrMeta>,
     ) -> FuncBody {
         self.update_branch_offsets();
+        let metas = self.metas.replace(Vec::new());
         assert_eq!(self.insts.len(), metas.len());
         engine.alloc_func_body(len_locals, max_stack_height, self.insts.drain(..), metas)
     }
