@@ -8,3 +8,4 @@ spec/target
 **/fuzz/artifacts/
 
 /.idea
+/tmp
