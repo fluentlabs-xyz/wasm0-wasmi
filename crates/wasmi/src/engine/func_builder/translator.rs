@@ -1,5 +1,4 @@
 use alloc::vec::Vec;
-use std::cell::RefCell;
 
 use wasmi_core::{F32, F64, ValueType};
 use wasmparser::VisitOperator;
@@ -39,7 +38,6 @@ use crate::{
     Mutability,
     Value,
 };
-use crate::engine::bytecode::InstrMeta;
 
 use super::{
     control_frame::{
@@ -108,8 +106,6 @@ pub struct FuncTranslator<'parser> {
     locals: LocalsRegistry,
     /// The reusable data structures of the [`FuncTranslator`].
     alloc: FuncTranslatorAllocations,
-    /// List with opcode metadata (pos, code)
-    opcode_metadata: RefCell<Vec<InstrMeta>>,
 }
 
 impl<'parser> FuncTranslator<'parser> {
@@ -126,7 +122,6 @@ impl<'parser> FuncTranslator<'parser> {
             stack_height: ValueStackHeight::default(),
             locals: LocalsRegistry::default(),
             alloc,
-            opcode_metadata: RefCell::new(Vec::new()),
         }
             .init()
     }
@@ -175,7 +170,7 @@ impl<'parser> FuncTranslator<'parser> {
     }
 
     pub fn register_opcode_metadata(&mut self, pos: usize, opcode: u8) {
-        self.opcode_metadata.borrow_mut().push(InstrMeta(pos, opcode));
+        self.alloc.inst_builder.register_meta(pos, opcode);
     }
 
     /// This informs the [`FuncTranslator`] that the function header translation is finished.
@@ -198,7 +193,6 @@ impl<'parser> FuncTranslator<'parser> {
             self.res.engine(),
             self.len_locals(),
             self.stack_height.max_stack_height() as usize,
-            self.opcode_metadata.replace(Vec::new()),
         );
         Ok(func_body)
     }

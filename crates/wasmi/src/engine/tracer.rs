@@ -59,11 +59,30 @@ impl Serialize for OpCodeState {
     }
 }
 
+#[derive(Debug)]
+pub struct FunctionMeta {
+    pub fn_index: u32,
+    pub max_stack_height: u32,
+    pub num_locals: u32,
+}
+
+impl Serialize for FunctionMeta {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
+        let mut s = serializer.serialize_struct("MemoryState", 3)?;
+        s.serialize_field("fn_index", &self.fn_index)?;
+        s.serialize_field("max_stack_height", &self.max_stack_height)?;
+        s.serialize_field("num_locals", &self.num_locals)?;
+        s.end()
+    }
+}
+
+
 #[derive(Default, Debug)]
 pub struct Tracer {
     global_memory: Vec<MemoryState>,
     logs: Vec<OpCodeState>,
     memory_changes: RefCell<Vec<MemoryState>>,
+    fns_meta: Vec<FunctionMeta>,
 }
 
 impl Serialize for Tracer {
@@ -71,6 +90,7 @@ impl Serialize for Tracer {
         let mut s = serializer.serialize_struct("Tracer", 1)?;
         s.serialize_field("global_memory", &self.global_memory)?;
         s.serialize_field("logs", &self.logs)?;
+        s.serialize_field("fn_metas", &self.fns_meta)?;
         s.end()
     }
 }
@@ -109,6 +129,19 @@ impl Tracer {
             source_pc: meta.source_pc(),
             code: meta.opcode(),
         });
+    }
+
+    pub fn function_call(
+        &mut self,
+        fn_index: usize,
+        max_stack_height: usize,
+        num_locals: usize,
+    ) {
+        self.fns_meta.push(FunctionMeta {
+            fn_index: fn_index as u32,
+            max_stack_height: max_stack_height as u32,
+            num_locals: num_locals as u32,
+        })
     }
 
     pub fn memory_change(

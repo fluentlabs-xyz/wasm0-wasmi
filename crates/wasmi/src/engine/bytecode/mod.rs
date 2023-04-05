@@ -22,7 +22,7 @@ pub use self::utils::{
 use core::fmt::Debug;
 use wasmi_core::UntypedValue;
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Default, Debug, Copy, Clone, PartialEq, Eq)]
 pub struct InstrMeta(pub usize, pub u8);
 
 impl InstrMeta {
