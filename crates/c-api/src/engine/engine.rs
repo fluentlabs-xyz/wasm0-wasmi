@@ -35,7 +35,6 @@ impl WasmEngine {
         let mut linker = Linker::<()>::new(&self.engine);
         let module = Module::new(self.store.engine(), self.wasm_binary.as_ref().unwrap().as_slice()).unwrap();
         for (name, func) in self.host_fns.iter() {
-            println!("RUST: defining host fn with name '{}'", name);
             linker.define("env", name.as_ref(), *func)?;
         }
         let instance = linker

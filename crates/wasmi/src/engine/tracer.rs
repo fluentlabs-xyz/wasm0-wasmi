@@ -37,7 +37,7 @@ pub struct OpCodeState {
 
 impl Serialize for OpCodeState {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
-        let mut s = serializer.serialize_struct("OpCodeState", 4)?;
+        let mut s = serializer.serialize_struct("OpCodeState", 9)?;
         s.serialize_field("pc", &self.program_counter)?;
         s.serialize_field("source_pc", &self.source_pc)?;
         s.serialize_field("name", self.opcode.name())?;
@@ -87,7 +87,7 @@ pub struct Tracer {
 
 impl Serialize for Tracer {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
-        let mut s = serializer.serialize_struct("Tracer", 1)?;
+        let mut s = serializer.serialize_struct("Tracer", 3)?;
         s.serialize_field("global_memory", &self.global_memory)?;
         s.serialize_field("logs", &self.logs)?;
         s.serialize_field("fn_metas", &self.fns_meta)?;
