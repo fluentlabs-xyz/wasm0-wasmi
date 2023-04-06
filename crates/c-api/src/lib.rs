@@ -3,7 +3,7 @@ use std::slice;
 use std::sync::Mutex;
 use safer_ffi::prelude::*;
 use wasmi::{Config, Engine, Linker, Module, Store};
-use crate::engine::factory::ProxyFactory;
+use crate::engine::proxy_factory::ProxyFactory;
 
 pub mod engine;
 
@@ -84,6 +84,20 @@ extern "C" fn memory_data(
         Some(r) => repr_c::Vec::from(r.lock().unwrap().clone()),
         None => repr_c::Vec::from(Vec::new())
     }
+}
+
+#[ffi_export]
+extern "C" fn trace_memory_change(
+    engine_id: i32,
+    offset: u32,
+    len: u32,
+    data: *mut u8,
+    data_length: usize,
+) {
+    let data = unsafe {
+        slice::from_raw_parts(data, data_length)
+    };
+    FACTORY.lock().unwrap().trace_memory_change(engine_id, offset, len, data);
 }
 
 #[ffi_export]

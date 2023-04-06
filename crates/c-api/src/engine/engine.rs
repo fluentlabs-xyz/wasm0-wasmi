@@ -69,7 +69,7 @@ impl WasmEngine {
             }
         }
         for (start, end) in memory_chunk_indexes {
-            self.store.tracer.global_memory(start as u32, (end-start+1) as u32, &memory_data[start..=end])
+            self.store.tracer.global_memory(start as u32, (end-start+1) as u32, &memory_data[start..=end]);
         }
         let func = instance.get_func(&self.store, "main").unwrap();
         let func = func.typed::<(), ()>(&self.store).unwrap();
@@ -90,6 +90,10 @@ impl WasmEngine {
             .start(&mut self.store)
             .unwrap();
         self.fetch_memory_data(&instance)
+    }
+
+    pub fn trace_memory_change(&mut self, offset: u32, len: u32, data: &[u8]) {
+        self.store.tracer.memory_change(offset, len, data);
     }
 
     fn fetch_memory_data(&mut self, instance: &Instance) -> Vec<u8> {

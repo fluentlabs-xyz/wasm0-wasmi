@@ -90,6 +90,14 @@ impl<'a> ProxyFactory {
         panic!("memory_data: failed to acquire lock")
     }
 
+    pub fn trace_memory_change(&mut self, engine_id: i32, offset: u32, len: u32, data: &[u8]) {
+        let we = self.get_wasm_engine(engine_id);
+        if let Ok(_) = self.mx.lock() {
+            we.lock().unwrap().trace_memory_change(offset, len, data)
+        }
+        panic!("trace_memory_change: failed to acquire lock")
+    }
+
     pub fn register_host_fn_p1_ret0(
         &mut self,
         engine_id: i32,

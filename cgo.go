@@ -135,6 +135,12 @@ func (we *WasmEngine) MemoryData() (data []byte, err error) {
 	return data, nil
 }
 
+func (we *WasmEngine) TraceMemoryChange(offset, len uint32, data []byte) (err error) {
+	cVec, cLen := byteArrayToRawPointer(data)
+	C.trace_memory_change(C.int(we.id), C.uint32_t(offset), C.uint32_t(len), cVec, cLen)
+	return nil
+}
+
 func (we *WasmEngine) register(name string, execContext ExecContext) {
 	we.registeredLock.Lock()
 	defer we.registeredLock.Unlock()

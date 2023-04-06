@@ -51,6 +51,13 @@ Vec_uint8_t compute_trace (
 Vec_uint8_t memory_data (
     int32_t engine_id);
 
+void trace_memory_change (
+    int32_t engine_id,
+    uint32_t offset,
+    uint32_t len,
+    uint8_t * data,
+    size_t data_length);
+
 bool register_host_fn_p1_ret0 (
     int32_t engine_id,
     int8_t const * host_fn_name_ptr,
