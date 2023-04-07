@@ -12,31 +12,23 @@ package zkwasm_wasmi
 //#include <stdint.h>
 #include <stdlib.h>
 
-typedef void (*callback_fn_p1_ret0_t)(int32_t engine_id, int32_t p1);
-typedef void (*callback_fn_p2_ret0_t)(int32_t engine_id, int32_t p1, int32_t p2);
-typedef void (*callback_fn_p3_ret0_t)(int32_t engine_id, int32_t p1, int32_t p2, int32_t p3);
 typedef void (*callback_fn_t)(int32_t engine_id, char* fn_name, int32_t* data, int32_t data_len);
 
 void callbackHandle_cgo(int32_t engine_id, char* fn_name, int32_t* data, int32_t data_len);
-void callbackHandle_cgo__evm_return_args(int32_t engine_id, int32_t* data, int32_t data_len);
-void callbackHandle_cgo__evm_return(int32_t engine_id, int32_t p1, int32_t p2);
-void callbackHandle_cgo__evm_address(int32_t engine_id, int32_t p1);
-void callbackHandle_cgo_gas(int32_t engine_id, int32_t p1);
 
 #include "packaged/include/wasmi.h"
 */
 import "C"
 
 import (
-	_ "embed"
-	"fmt"
-	"log"
-	"reflect"
-	"sync"
-	"unsafe"
+    _ "embed"
+    "log"
+    "reflect"
+    "sync"
+    "unsafe"
 
-	_ "github.com/wasm0/zkwasm-wasmi/packaged/include"
-	_ "github.com/wasm0/zkwasm-wasmi/packaged/lib"
+    _ "github.com/wasm0/zkwasm-wasmi/packaged/include"
+    _ "github.com/wasm0/zkwasm-wasmi/packaged/lib"
 )
 
 func byteArrayToRawPointer(input []byte) (*C.uchar, C.size_t) {
@@ -170,29 +162,8 @@ func (we *WasmEngine) RegisterHostFn2(fnName string, paramsCount int, fn ExecCon
 	funcNameCStr := C.CString(fnName)
 	defer C.free(unsafe.Pointer(funcNameCStr))
 	result := false
-	fmt.Printf("RegisterHostFn2 fnName '%s' paramsCount %d\n", fnName, paramsCount)
-	//switch fnName {
-	//case "_evm_return":
 	res := C.register_host_fn(C.int(we.id), (*C.int8_t)(funcNameCStr), (C.callback_fn_t)(C.callbackHandle_cgo), C.int32_t(paramsCount))
 	result = bool(res)
-	//default:
-	//	log.Panicf("unsupported fnName '%s'\n", fnName)
-	//}
-	return result
-}
-
-func (we *WasmEngine) RegisterHostFn(fnName string, fn ExecContext) bool {
-	we.register(fnName, fn)
-	funcNameCStr := C.CString(fnName)
-	defer C.free(unsafe.Pointer(funcNameCStr))
-	result := false
-	switch fnName {
-	case "_evm_return":
-		res := C.register_host_fn_p2_ret0(C.int(we.id), (*C.int8_t)(funcNameCStr), (C.callback_fn_p2_ret0_t)(C.callbackHandle_cgo__evm_return))
-		result = bool(res)
-	default:
-		log.Panicf("unsupported fnName '%s'\n", fnName)
-	}
 	return result
 }
 
@@ -211,49 +182,13 @@ func cArrayToString(array *C.char, len C.int) string {
 	sliceHeader.Cap = int(len)
 	sliceHeader.Len = int(len)
 	sliceHeader.Data = uintptr(unsafe.Pointer(array))
-	fmt.Printf("cArrayToString '%v'\n", list)
 	return string(list)
 }
 
 func cCharPtrToString(p *C.char) string {
 	s := C.GoString(p)
 	C.free(unsafe.Pointer(p))
-	fmt.Printf("cCharPtrToString '%v'\n", s)
 	return s
-}
-
-//export callbackHandle_cgo__evm_return
-func callbackHandle_cgo__evm_return(engine_id C.int32_t, p1 C.int32_t, p2 C.int32_t) {
-	const FN_NAME = "_evm_return"
-	engineId := int32(engine_id)
-	wasmEngine := wasmEnginesPool.Get(engineId)
-	if wasmEngine == nil {
-		log.Panicf("not existing wasm engine id %d", engineId)
-	}
-	execContext := wasmEngine.getRegistered(FN_NAME)
-	if cb, ok := execContext.(func(params []int32)); ok {
-		cb([]int32{int32(p1), int32(p2)})
-	} else {
-		log.Panicf("failed to cast FN_NAME '%s', check registered funtion (registeredFunctions)\n", FN_NAME)
-	}
-}
-
-//export callbackHandle_cgo__evm_return_args
-func callbackHandle_cgo__evm_return_args(engine_id C.int32_t, data *C.int32_t, data_len C.int32_t) {
-	const FN_NAME = "_evm_return"
-	args := cArrayToSlice(data, data_len)
-	engineId := int32(engine_id)
-	wasmEngine := wasmEnginesPool.Get(engineId)
-	if wasmEngine == nil {
-		log.Panicf("wasm engine id %d doesn't exist", engineId)
-	}
-	execContext := wasmEngine.getRegistered(FN_NAME)
-	if cb, ok := execContext.(func(params []int32)); ok {
-		fmt.Printf("calling cb for '%s': %v\n", FN_NAME, args[1:])
-		cb(args[1:])
-	} else {
-		log.Panicf("failed to cast FN_NAME '%s', check registered funtion (registeredFunctions)\n", FN_NAME)
-	}
 }
 
 //export callbackHandle_cgo
@@ -262,48 +197,14 @@ func callbackHandle_cgo(engine_id C.int32_t, fn_name *C.char, data *C.int32_t, d
 	engineId := int32(engine_id)
 	fnName := cCharPtrToString(fn_name)
 	args := cArrayToSlice(data, data_len)
-	fmt.Printf("callbackHandle_cgo engineId %d fnName '%s' args %v\n", engineId, fnName, args)
 	wasmEngine := wasmEnginesPool.Get(engineId)
 	if wasmEngine == nil {
 		log.Panicf("wasm engine id %d doesn't exist", engineId)
 	}
 	execContext := wasmEngine.getRegistered(fnName)
 	if cb, ok := execContext.(func(params []int32)); ok {
-		fmt.Printf("calling cb for '%s': %v\n", fnName, args[1:])
 		cb(args[1:])
 	} else {
 		log.Panicf("failed to cast fnName '%s', check registered function\n", fnName)
-	}
-}
-
-//export callbackHandle_cgo__evm_address
-func callbackHandle_cgo__evm_address(engine_id C.int32_t, p1 C.int32_t) {
-	const FN_NAME = "_evm_address"
-	engineId := int32(engine_id)
-	wasmEngine := wasmEnginesPool.Get(engineId)
-	if wasmEngine == nil {
-		log.Panicf("not existing wasm engine id %d", engineId)
-	}
-	execContext := wasmEngine.getRegistered(FN_NAME)
-	if cb, ok := execContext.(func(params []int32)); ok {
-		cb([]int32{int32(p1)})
-	} else {
-		log.Panicf("failed to cast FN_NAME '%s', check registered funtion (registeredFunctions)\n", FN_NAME)
-	}
-}
-
-//export callbackHandle_cgo_gas
-func callbackHandle_cgo_gas(engine_id C.int32_t, p1 C.int32_t) {
-	const FN_NAME = "gas"
-	engineId := int32(engine_id)
-	wasmEngine := wasmEnginesPool.Get(engineId)
-	if wasmEngine == nil {
-		log.Panicf("not existing wasm engine id %d", engineId)
-	}
-	execContext := wasmEngine.getRegistered(FN_NAME)
-	if cb, ok := execContext.(func(params []int32)); ok {
-		cb([]int32{int32(p1)})
-	} else {
-		log.Panicf("failed to cast FN_NAME '%s', check registered funtion (registeredFunctions)", FN_NAME)
 	}
 }
