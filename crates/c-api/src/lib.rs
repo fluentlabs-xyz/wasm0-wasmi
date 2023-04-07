@@ -1,4 +1,4 @@
-use std::ffi::{c_char, CStr};
+use std::ffi::{c_char, CStr, CString};
 use std::{mem, slice};
 use std::sync::Mutex;
 use safer_ffi::prelude::*;
@@ -104,7 +104,7 @@ extern "C" fn trace_memory_change(
 extern "C" fn register_host_fn(
     engine_id: i32,
     host_fn_name_ptr: *const c_char,
-    host_fn: extern "C" fn(i32, data: *mut i32, data_length: usize) -> (),
+    host_fn: extern "C" fn(i32, fn_name: *const i8, data: *mut i32, data_length: usize) -> (),
     func_params_count: i32,
 ) -> bool {
     let mut res: bool = false;
@@ -115,13 +115,15 @@ extern "C" fn register_host_fn(
     match hfn_name {
         Ok(hfn_name) => {
             res = true;
-            let host_fn_wrapper =  Box::new(move |mut params: Vec<i32>| {
+            let host_fn_wrapper =  Box::new(move |host_fn_name: String, mut params: Vec<i32>| {
                 let params_ptr = params.as_mut_ptr();
                 let params_len = params.len();
                 mem::forget(params);
-                host_fn(engine_id, params_ptr, params_len);
+                let hfn_name_c_string = unsafe {CStr::from_bytes_with_nul_unchecked(host_fn_name.as_bytes())};
+                host_fn(engine_id, hfn_name_c_string.as_ptr(), /*hfn_name_bytes_len,*/ params_ptr, params_len);
+                mem::forget(host_fn_name);
             });
-            FACTORY.lock().unwrap().register_host_fn(engine_id, hfn_name, host_fn_wrapper, func_params_count);
+            FACTORY.lock().unwrap().register_host_fn(engine_id, hfn_name.to_string(), host_fn_wrapper, func_params_count);
         },
         Err(e) => {
             panic!("failed to convert host fn name slice of bytes to string: {}", e.to_string())

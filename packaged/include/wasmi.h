@@ -61,7 +61,7 @@ void trace_memory_change (
 bool register_host_fn (
     int32_t engine_id,
     int8_t const * host_fn_name_ptr,
-    void (*host_fn)(int32_t, int32_t *, size_t),
+    void (*host_fn)(int32_t, int8_t const *, int32_t *, size_t),
     int32_t func_params_count);
 
 bool register_host_fn_p1_ret0 (

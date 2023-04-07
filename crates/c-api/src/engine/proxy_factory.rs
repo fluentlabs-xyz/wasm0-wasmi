@@ -102,52 +102,142 @@ impl<'a> ProxyFactory {
     pub fn register_host_fn(
         &mut self,
         engine_id: i32,
-        name: &str,
-        func: Box<dyn Fn(Vec<i32>) -> () + Send + Sync>,
+        name: String,
+        func: Box<dyn Fn(String, Vec<i32>) -> () + Send + Sync>,
         func_params_count: i32,
     ) -> bool {
         let res: bool;
+        let func_params_count = func_params_count as usize;
         let we = self.try_get_wasm_engine(engine_id);
         match we {
             Some(we) => {
                 let register_res: Result<(), String>;
-                println!("RUST: register_host_fn '{}' params count {}", name, func_params_count);
                 match func_params_count {
                     1 => {
-                        let wrapped_func = move |engine_id: i32| {
+                        let wrapped_func = move |fn_name: String, func_params_count: usize, engine_id: i32| {
                             let p = vec![engine_id];
-                            if p.len() != func_params_count as usize {
+                            if p.len() != func_params_count {
                                 panic!("wrapped_func expected params count {} got {}", func_params_count, p.len());
                             }
-                            println!("wrapped_func: {:?}", p);
-                            func(p);
+                            func(fn_name.clone(), p);
                         };
-                        let native_func = move || { wrapped_func(engine_id); };
-                        register_res = we.lock().unwrap().register_host_fn(name, native_func);
+                        let name_cloned = name.clone();
+                        let native_func = move || {
+                            wrapped_func(name.clone(), func_params_count, engine_id);
+                        };
+                        register_res = we.lock().unwrap().register_host_fn(name_cloned, native_func);
                     },
                     2 => {
-                        let wrapped_func = move |engine_id: i32, p1: i32| {
+                        let wrapped_func = move |fn_name: String, func_params_count: usize, engine_id: i32, p1: i32| {
                             let p = vec![engine_id, p1];
-                            if p.len() != func_params_count as usize {
+                            if p.len() != func_params_count {
                                 panic!("wrapped_func expected params count {} got {}", func_params_count, p.len());
                             }
-                            println!("wrapped_func: {:?}", p);
-                            func(p);
+                            func(fn_name, p);
                         };
-                        let native_func = move |p1: i32| { wrapped_func(engine_id, p1) };
-                        register_res = we.lock().unwrap().register_host_fn(name, native_func);
+                        let name_cloned = name.clone();
+                        let native_func = move |p1: i32| {
+                            wrapped_func( name.clone(), func_params_count, engine_id, p1);
+                        };
+                        register_res = we.lock().unwrap().register_host_fn(name_cloned, native_func);
                     },
                     3 => {
-                        let wrapped_func = move |engine_id: i32, p1: i32, p2: i32| {
+                        let wrapped_func = move |fn_name: String, engine_id: i32, p1: i32, p2: i32| {
                             let p = vec![engine_id, p1, p2];
-                            if p.len() != func_params_count as usize {
+                            if p.len() != func_params_count {
                                 panic!("wrapped_func expected params count {} got {}", func_params_count, p.len());
                             }
-                            println!("wrapped_func: {:?}", p);
-                            func(p);
+                            func(fn_name, p);
                         };
-                        let native_func = move |p1: i32, p2: i32| { wrapped_func(engine_id, p1, p2) };
-                        register_res = we.lock().unwrap().register_host_fn(name, native_func);
+                        let name_cloned = name.clone();
+                        let native_func = move |p1: i32, p2: i32| {
+                            wrapped_func(name.clone(), engine_id, p1, p2);
+                        };
+                        register_res = we.lock().unwrap().register_host_fn(name_cloned, native_func);
+                    },
+                    4 => {
+                        let wrapped_func = move |fn_name: String, engine_id: i32, p1: i32, p2: i32, p3: i32| {
+                            let p = vec![engine_id, p1, p2, p3];
+                            if p.len() != func_params_count {
+                                panic!("wrapped_func expected params count {} got {}", func_params_count, p.len());
+                            }
+                            func(fn_name, p);
+                        };
+                        let name_cloned = name.clone();
+                        let native_func = move |p1: i32, p2: i32, p3: i32| {
+                            wrapped_func(name.clone(), engine_id, p1, p2, p3);
+                        };
+                        register_res = we.lock().unwrap().register_host_fn(name_cloned, native_func);
+                    },
+                    5 => {
+                        let wrapped_func = move |fn_name: String, engine_id: i32, p1: i32, p2: i32, p3: i32, p4: i32| {
+                            let p = vec![engine_id, p1, p2, p3, p4];
+                            if p.len() != func_params_count {
+                                panic!("wrapped_func expected params count {} got {}", func_params_count, p.len());
+                            }
+                            func(fn_name, p);
+                        };
+                        let name_cloned = name.clone();
+                        let native_func = move |p1: i32, p2: i32, p3: i32, p4: i32| {
+                            wrapped_func(name.clone(), engine_id, p1, p2, p3, p4);
+                        };
+                        register_res = we.lock().unwrap().register_host_fn(name_cloned, native_func);
+                    },
+                    6 => {
+                        let wrapped_func = move |fn_name: String, engine_id: i32, p1: i32, p2: i32, p3: i32, p4: i32, p5: i32| {
+                            let p = vec![engine_id, p1, p2, p3, p4, p5];
+                            if p.len() != func_params_count {
+                                panic!("wrapped_func expected params count {} got {}", func_params_count, p.len());
+                            }
+                            func(fn_name, p);
+                        };
+                        let name_cloned = name.clone();
+                        let native_func = move |p1: i32, p2: i32, p3: i32, p4: i32, p5: i32| {
+                            wrapped_func(name.clone(), engine_id, p1, p2, p3, p4, p5);
+                        };
+                        register_res = we.lock().unwrap().register_host_fn(name_cloned, native_func);
+                    },
+                    7 => {
+                        let wrapped_func = move |fn_name: String, engine_id: i32, p1: i32, p2: i32, p3: i32, p4: i32, p5: i32, p6: i32| {
+                            let p = vec![engine_id, p1, p2, p3, p4, p5, p6];
+                            if p.len() != func_params_count {
+                                panic!("wrapped_func expected params count {} got {}", func_params_count, p.len());
+                            }
+                            func(fn_name, p);
+                        };
+                        let name_cloned = name.clone();
+                        let native_func = move |p1: i32, p2: i32, p3: i32, p4: i32, p5: i32, p6: i32| {
+                            wrapped_func(name.clone(), engine_id, p1, p2, p3, p4, p5, p6);
+                        };
+                        register_res = we.lock().unwrap().register_host_fn(name_cloned, native_func);
+                    },
+                    8 => {
+                        let wrapped_func = move |fn_name: String, engine_id: i32, p1: i32, p2: i32, p3: i32, p4: i32, p5: i32, p6: i32, p7: i32| {
+                            let p = vec![engine_id, p1, p2, p3, p4, p5, p6, p7];
+                            if p.len() != func_params_count {
+                                panic!("wrapped_func expected params count {} got {}", func_params_count, p.len());
+                            }
+                            func(fn_name, p);
+                        };
+                        let name_cloned = name.clone();
+                        let native_func = move |p1: i32, p2: i32, p3: i32, p4: i32, p5: i32, p6: i32, p7: i32| {
+                            wrapped_func(name.clone(), engine_id, p1, p2, p3, p4, p5, p6, p7);
+                        };
+                        register_res = we.lock().unwrap().register_host_fn(name_cloned, native_func);
+                    },
+                    9 => {
+                        let wrapped_func = move |fn_name: String, engine_id: i32, p1: i32, p2: i32, p3: i32, p4: i32, p5: i32, p6: i32, p7: i32, p8: i32| {
+                            let p = vec![engine_id, p1, p2, p3, p4, p5, p6, p7, p8];
+                            if p.len() != func_params_count {
+                                panic!("wrapped_func expected params count {} got {}", func_params_count, p.len());
+                            }
+                            func(fn_name, p);
+                        };
+                        let name_cloned = name.clone();
+                        let native_func = move |p1: i32, p2: i32, p3: i32, p4: i32, p5: i32, p6: i32, p7: i32, p8: i32| {
+                            wrapped_func(name.clone(), engine_id, p1, p2, p3, p4, p5, p6, p7, p8);
+                        };
+                        register_res = we.lock().unwrap().register_host_fn(name_cloned, native_func);
                     },
                     _ => panic!("unsupported func_params_count {}. min number is 1 means 0 params and 1 for engine_id", func_params_count)
                 }
@@ -173,7 +263,7 @@ impl<'a> ProxyFactory {
         let we = self.try_get_wasm_engine(engine_id);
         match we {
             Some(we) => {
-                let register_res = we.lock().unwrap().register_host_fn(name, native_func);
+                let register_res = we.lock().unwrap().register_host_fn(name.to_string(), native_func);
                 match register_res {
                     Ok(_) => { res = true; },
                     Err(e) => {panic!("failed to register host fn: {}", e)}
@@ -196,7 +286,7 @@ impl<'a> ProxyFactory {
         let we = self.try_get_wasm_engine(engine_id);
         match we {
             Some(we) => {
-                let register_res = we.lock().unwrap().register_host_fn(name, native_func);
+                let register_res = we.lock().unwrap().register_host_fn(name.to_string(), native_func);
                 match register_res {
                     Ok(_) => { res = true; },
                     Err(e) => {panic!("failed to register host fn: {}", e)}

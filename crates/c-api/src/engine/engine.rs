@@ -115,12 +115,12 @@ impl WasmEngine {
         memory_data
     }
 
-    pub fn register_host_fn<Params, Results>(&mut self, name: &str, func: impl IntoFunc<(), Params, Results>) -> Result<(), String> {
-        if self.host_fns.contains_key(name) {
+    pub fn register_host_fn<Params, Results>(&mut self, name: String, func: impl IntoFunc<(), Params, Results>) -> Result<(), String> {
+        if self.host_fns.contains_key(name.as_str()) {
             return Err(format!("there is already fn with name: {}", &name));
         };
         let host_fn = Func::wrap(&mut self.store, func);
-        self.host_fns.insert(name.to_string(), host_fn);
+        self.host_fns.insert(name, host_fn);
         Ok(())
     }
 }
