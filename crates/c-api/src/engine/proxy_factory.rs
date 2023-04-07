@@ -1,5 +1,6 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::pin::Pin;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 use crate::engine::engine::WasmEngine;
@@ -96,6 +97,68 @@ impl<'a> ProxyFactory {
             we.lock().unwrap().trace_memory_change(offset, len, data)
         }
         panic!("trace_memory_change: failed to acquire lock")
+    }
+
+    pub fn register_host_fn(
+        &mut self,
+        engine_id: i32,
+        name: &str,
+        func: Box<dyn Fn(Vec<i32>) -> () + Send + Sync>,
+        func_params_count: i32,
+    ) -> bool {
+        let res: bool;
+        let we = self.try_get_wasm_engine(engine_id);
+        match we {
+            Some(we) => {
+                let register_res: Result<(), String>;
+                println!("RUST: register_host_fn '{}' params count {}", name, func_params_count);
+                match func_params_count {
+                    1 => {
+                        let wrapped_func = move |engine_id: i32| {
+                            let p = vec![engine_id];
+                            if p.len() != func_params_count as usize {
+                                panic!("wrapped_func expected params count {} got {}", func_params_count, p.len());
+                            }
+                            println!("wrapped_func: {:?}", p);
+                            func(p);
+                        };
+                        let native_func = move || { wrapped_func(engine_id); };
+                        register_res = we.lock().unwrap().register_host_fn(name, native_func);
+                    },
+                    2 => {
+                        let wrapped_func = move |engine_id: i32, p1: i32| {
+                            let p = vec![engine_id, p1];
+                            if p.len() != func_params_count as usize {
+                                panic!("wrapped_func expected params count {} got {}", func_params_count, p.len());
+                            }
+                            println!("wrapped_func: {:?}", p);
+                            func(p);
+                        };
+                        let native_func = move |p1: i32| { wrapped_func(engine_id, p1) };
+                        register_res = we.lock().unwrap().register_host_fn(name, native_func);
+                    },
+                    3 => {
+                        let wrapped_func = move |engine_id: i32, p1: i32, p2: i32| {
+                            let p = vec![engine_id, p1, p2];
+                            if p.len() != func_params_count as usize {
+                                panic!("wrapped_func expected params count {} got {}", func_params_count, p.len());
+                            }
+                            println!("wrapped_func: {:?}", p);
+                            func(p);
+                        };
+                        let native_func = move |p1: i32, p2: i32| { wrapped_func(engine_id, p1, p2) };
+                        register_res = we.lock().unwrap().register_host_fn(name, native_func);
+                    },
+                    _ => panic!("unsupported func_params_count {}. min number is 1 means 0 params and 1 for engine_id", func_params_count)
+                }
+                match register_res {
+                    Ok(_) => { res = true; },
+                    Err(e) => {panic!("failed to register host fn: {}", e)}
+                }
+            },
+            None => panic!("register_host_fn: engine with id {} not found", engine_id)
+        }
+        res
     }
 
     pub fn register_host_fn_p1_ret0(

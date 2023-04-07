@@ -1,5 +1,5 @@
 use std::ffi::{c_char, CStr};
-use std::slice;
+use std::{mem, slice};
 use std::sync::Mutex;
 use safer_ffi::prelude::*;
 use wasmi::{Config, Engine, Linker, Module, Store};
@@ -98,6 +98,36 @@ extern "C" fn trace_memory_change(
         slice::from_raw_parts(data, data_length)
     };
     FACTORY.lock().unwrap().trace_memory_change(engine_id, offset, len, data);
+}
+
+#[ffi_export]
+extern "C" fn register_host_fn(
+    engine_id: i32,
+    host_fn_name_ptr: *const c_char,
+    host_fn: extern "C" fn(i32, data: *mut i32, data_length: usize) -> (),
+    func_params_count: i32,
+) -> bool {
+    let mut res: bool = false;
+    let hfn_name_bytes = unsafe {
+        CStr::from_ptr(host_fn_name_ptr as *const c_char)
+    };
+    let hfn_name = hfn_name_bytes.to_str();
+    match hfn_name {
+        Ok(hfn_name) => {
+            res = true;
+            let host_fn_wrapper =  Box::new(move |mut params: Vec<i32>| {
+                let params_ptr = params.as_mut_ptr();
+                let params_len = params.len();
+                mem::forget(params);
+                host_fn(engine_id, params_ptr, params_len);
+            });
+            FACTORY.lock().unwrap().register_host_fn(engine_id, hfn_name, host_fn_wrapper, func_params_count);
+        },
+        Err(e) => {
+            panic!("failed to convert host fn name slice of bytes to string: {}", e.to_string())
+        }
+    }
+    res
 }
 
 #[ffi_export]

@@ -15,8 +15,10 @@ package zkwasm_wasmi
 typedef void (*callback_fn_p1_ret0_t)(int32_t engine_id, int32_t p1);
 typedef void (*callback_fn_p2_ret0_t)(int32_t engine_id, int32_t p1, int32_t p2);
 typedef void (*callback_fn_p3_ret0_t)(int32_t engine_id, int32_t p1, int32_t p2, int32_t p3);
-typedef int* (*callback_fn_t)(int* params);
+typedef void (*callback_fn_t)(int32_t engine_id, int32_t * data, int32_t data_len);
 
+void callbackHandle_cgo__evm_return_args(int32_t engine_id, int32_t * data, int32_t data_len);
+void callbackHandle_cgo(int32_t engine_id, int32_t * data, int32_t data_len);
 void callbackHandle_cgo__evm_return(int32_t engine_id, int32_t p1, int32_t p2);
 void callbackHandle_cgo__evm_address(int32_t engine_id, int32_t p1);
 void callbackHandle_cgo_gas(int32_t engine_id, int32_t p1);
@@ -27,6 +29,7 @@ import "C"
 
 import (
 	_ "embed"
+	"fmt"
 	"log"
 	"reflect"
 	"sync"
@@ -162,6 +165,22 @@ func (we *WasmEngine) getRegistered(name string) ExecContext {
 	return found
 }
 
+func (we *WasmEngine) RegisterHostFn2(fnName string, paramsCount int, fn ExecContext) bool {
+	we.register(fnName, fn)
+	funcNameCStr := C.CString(fnName)
+	defer C.free(unsafe.Pointer(funcNameCStr))
+	result := false
+	fmt.Printf("RegisterHostFn2 fnName '%s' paramsCount %d\n", fnName, paramsCount)
+	switch fnName {
+	case "_evm_return":
+		res := C.register_host_fn(C.int(we.id), (*C.int8_t)(funcNameCStr), (C.callback_fn_t)(C.callbackHandle_cgo), C.int32_t(paramsCount))
+		result = bool(res)
+	default:
+		log.Panicf("unsupported fnName '%s'\n", fnName)
+	}
+	return result
+}
+
 func (we *WasmEngine) RegisterHostFn(fnName string, fn ExecContext) bool {
 	we.register(fnName, fn)
 	funcNameCStr := C.CString(fnName)
@@ -171,23 +190,17 @@ func (we *WasmEngine) RegisterHostFn(fnName string, fn ExecContext) bool {
 	case "_evm_return":
 		res := C.register_host_fn_p2_ret0(C.int(we.id), (*C.int8_t)(funcNameCStr), (C.callback_fn_p2_ret0_t)(C.callbackHandle_cgo__evm_return))
 		result = bool(res)
-	case "_evm_address":
-		res := C.register_host_fn_p1_ret0(C.int(we.id), (*C.int8_t)(funcNameCStr), (C.callback_fn_p1_ret0_t)(C.callbackHandle_cgo__evm_address))
-		result = bool(res)
-	case "gas":
-		res := C.register_host_fn_p1_ret0(C.int(we.id), (*C.int8_t)(funcNameCStr), (C.callback_fn_p1_ret0_t)(C.callbackHandle_cgo_gas))
-		result = bool(res)
 	default:
 		log.Panicf("unsupported fnName '%s'\n", fnName)
 	}
 	return result
 }
 
-func cArrayToSlice(array *C.int, len int) []int {
-	var list []int
+func cArrayToSlice(array *C.int32_t, len C.int) []int32 {
+	var list []int32
 	sliceHeader := (*reflect.SliceHeader)(unsafe.Pointer(&list))
-	sliceHeader.Cap = len
-	sliceHeader.Len = len
+	sliceHeader.Cap = int(len)
+	sliceHeader.Len = int(len)
 	sliceHeader.Data = uintptr(unsafe.Pointer(array))
 	return list
 }
@@ -203,6 +216,42 @@ func callbackHandle_cgo__evm_return(engine_id C.int32_t, p1 C.int32_t, p2 C.int3
 	execContext := wasmEngine.getRegistered(FN_NAME)
 	if cb, ok := execContext.(func(params []int32)); ok {
 		cb([]int32{int32(p1), int32(p2)})
+	} else {
+		log.Panicf("failed to cast FN_NAME '%s', check registered funtion (registeredFunctions)\n", FN_NAME)
+	}
+}
+
+//export callbackHandle_cgo__evm_return_args
+func callbackHandle_cgo__evm_return_args(engine_id C.int32_t, data *C.int32_t, data_len C.int32_t) {
+	const FN_NAME = "_evm_return"
+	args := cArrayToSlice(data, data_len)
+	engineId := int32(engine_id)
+	wasmEngine := wasmEnginesPool.Get(engineId)
+	if wasmEngine == nil {
+		log.Panicf("wasm engine id %d doesn't exist", engineId)
+	}
+	execContext := wasmEngine.getRegistered(FN_NAME)
+	if cb, ok := execContext.(func(params []int32)); ok {
+		fmt.Printf("calling cb for '%s': %v\n", FN_NAME, args[1:])
+		cb(args[1:])
+	} else {
+		log.Panicf("failed to cast FN_NAME '%s', check registered funtion (registeredFunctions)\n", FN_NAME)
+	}
+}
+
+//export callbackHandle_cgo
+func callbackHandle_cgo(engine_id C.int32_t, data *C.int32_t, data_len C.int32_t) {
+	const FN_NAME = "_evm_return"
+	args := cArrayToSlice(data, data_len)
+	engineId := int32(engine_id)
+	wasmEngine := wasmEnginesPool.Get(engineId)
+	if wasmEngine == nil {
+		log.Panicf("wasm engine id %d doesn't exist", engineId)
+	}
+	execContext := wasmEngine.getRegistered(FN_NAME)
+	if cb, ok := execContext.(func(params []int32)); ok {
+		fmt.Printf("calling cb for '%s': %v\n", FN_NAME, args[1:])
+		cb(args[1:])
 	} else {
 		log.Panicf("failed to cast FN_NAME '%s', check registered funtion (registeredFunctions)\n", FN_NAME)
 	}
