@@ -9,7 +9,7 @@ package zkwasm_wasmi
 #cgo darwin,amd64 LDFLAGS: -Wl,-rpath,${SRCDIR}/packaged/lib/darwin-amd64 -L${SRCDIR}/packaged/lib/darwin-amd64
 #cgo darwin,arm64 LDFLAGS: -Wl,-rpath,${SRCDIR}/packaged/lib/darwin-aarch64 -L${SRCDIR}/packaged/lib/darwin-aarch64
 
-//#include <stdint.h>
+#include <stdint.h>
 #include <stdlib.h>
 
 typedef void (*callback_fn_t)(int32_t engine_id, char* fn_name, int32_t* data, int32_t data_len);
