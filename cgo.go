@@ -2,7 +2,7 @@ package zkwasm_wasmi
 
 /*
 #cgo CFLAGS: -I${SRCDIR}/packaged/include
-#cgo LDFLAGS: -lwasmi_c_api
+#cgo LDFLAGS: -lwasmi_c_api -lpthread
 
 #cgo linux,amd64 LDFLAGS: -Wl,-rpath,${SRCDIR}/packaged/lib/linux-amd64 -L${SRCDIR}/packaged/lib/linux-amd64
 //#cgo linux,arm64 LDFLAGS: -Wl,-rpath,${SRCDIR}/packaged/lib/linux-aarch64 -L${SRCDIR}/packaged/lib/linux-aarch64
