@@ -23,15 +23,14 @@ void callbackHandle_cgo_i64(int32_t engine_id, char* fn_name, int32_t fn_name_le
 import "C"
 
 import (
-	_ "embed"
-	"fmt"
-	"log"
-	"reflect"
-	"sync"
-	"unsafe"
+    _ "embed"
+    "log"
+    "reflect"
+    "sync"
+    "unsafe"
 
-	_ "github.com/wasm0/zkwasm-wasmi/packaged/include"
-	_ "github.com/wasm0/zkwasm-wasmi/packaged/lib"
+    _ "github.com/wasm0/zkwasm-wasmi/packaged/include"
+    _ "github.com/wasm0/zkwasm-wasmi/packaged/lib"
 )
 
 func byteArrayToRawPointer(input []byte) (*C.uchar, C.size_t) {
@@ -144,8 +143,6 @@ func (we *WasmEngine) register(name string, execContext ExecContext) {
 
 	if _, ok := we.execContexts[name]; ok {
 		log.Panicf("name '%s' already occupied\n", name)
-	} else {
-		log.Printf("registered '%s' exec context\n", name)
 	}
 	we.execContexts[name] = execContext
 }
@@ -238,9 +235,6 @@ func callbackHandle_cgo_i32(engine_id C.int32_t, fn_name *C.char, fn_name_len C.
 func callbackHandle_cgo_i64(engine_id C.int32_t, fn_name *C.char, fn_name_len C.int32_t, data *C.int64_t, data_len C.int32_t) {
 	engineId := int32(engine_id)
 	fnName := cArrayToString(fn_name, fn_name_len)
-	fnNameLen := len(fnName)
-	fmt.Printf("fnNameLen %d\n", fnNameLen)
-	fmt.Printf("fn_name_len %d\n", fn_name_len)
 	args := cArrayToSliceI64(data, data_len)
 	wasmEngine := wasmEnginesPool.Get(engineId)
 	if wasmEngine == nil {
