@@ -12,23 +12,26 @@ package zkwasm_wasmi
 //#include <stdint.h>
 #include <stdlib.h>
 
-typedef void (*callback_fn_t)(int32_t engine_id, char* fn_name, int32_t* data, int32_t data_len);
+typedef void (*callback_fn_i32_t)(int32_t engine_id, char* fn_name, int32_t fn_name_len, int32_t* data, int32_t data_len);
+typedef void (*callback_fn_i64_t)(int32_t engine_id, char* fn_name, int32_t fn_name_len, int64_t* data, int32_t data_len);
 
-void callbackHandle_cgo(int32_t engine_id, char* fn_name, int32_t* data, int32_t data_len);
+void callbackHandle_cgo_i32(int32_t engine_id, char* fn_name, int32_t fn_name_len, int32_t* data, int32_t data_len);
+void callbackHandle_cgo_i64(int32_t engine_id, char* fn_name, int32_t fn_name_len, int64_t* data, int32_t data_len);
 
 #include "packaged/include/wasmi.h"
 */
 import "C"
 
 import (
-    _ "embed"
-    "log"
-    "reflect"
-    "sync"
-    "unsafe"
+	_ "embed"
+	"fmt"
+	"log"
+	"reflect"
+	"sync"
+	"unsafe"
 
-    _ "github.com/wasm0/zkwasm-wasmi/packaged/include"
-    _ "github.com/wasm0/zkwasm-wasmi/packaged/lib"
+	_ "github.com/wasm0/zkwasm-wasmi/packaged/include"
+	_ "github.com/wasm0/zkwasm-wasmi/packaged/lib"
 )
 
 func byteArrayToRawPointer(input []byte) (*C.uchar, C.size_t) {
@@ -83,9 +86,9 @@ func (wep *WasmEnginesPool) Get(id int32) *WasmEngine {
 var wasmEnginesPool = NewWasmEnginesPool()
 
 type WasmEngine struct {
-	id             int32
-	execContexts   map[string]ExecContext
-	registeredLock sync.Mutex
+	id                int32
+	execContexts      map[string]ExecContext
+	execContextsMutex sync.Mutex
 }
 
 type ExecContext interface {
@@ -136,37 +139,52 @@ func (we *WasmEngine) TraceMemoryChange(offset, len uint32, data []byte) (err er
 }
 
 func (we *WasmEngine) register(name string, execContext ExecContext) {
-	we.registeredLock.Lock()
-	defer we.registeredLock.Unlock()
+	we.execContextsMutex.Lock()
+	defer we.execContextsMutex.Unlock()
 
 	if _, ok := we.execContexts[name]; ok {
 		log.Panicf("name '%s' already occupied\n", name)
+	} else {
+		log.Printf("registered '%s' exec context\n", name)
 	}
 	we.execContexts[name] = execContext
 }
 
 func (we *WasmEngine) getRegistered(name string) ExecContext {
-	we.registeredLock.Lock()
-	defer we.registeredLock.Unlock()
+	we.execContextsMutex.Lock()
+	defer we.execContextsMutex.Unlock()
 
+	//if strings.HasPrefix(name, "gas") {
+	//	name = "gas"
+	//}
 	found, ok := we.execContexts[name]
 	if !ok {
-		log.Panicf("nothing registered for name '%s'\n", name)
+		log.Panicf("no exec context registered for '%s'\n", name)
 	}
 	return found
 }
 
-func (we *WasmEngine) RegisterHostFn(fnName string, paramsCount int, fn ExecContext) bool {
+func (we *WasmEngine) RegisterHostFnI32(fnName string, paramsCount int, fn ExecContext) bool {
 	we.register(fnName, fn)
 	funcNameCStr := C.CString(fnName)
 	defer C.free(unsafe.Pointer(funcNameCStr))
 	result := false
-	res := C.register_host_fn(C.int(we.id), (*C.int8_t)(funcNameCStr), (C.callback_fn_t)(C.callbackHandle_cgo), C.int32_t(paramsCount))
+	res := C.register_host_fn_i32(C.int(we.id), (*C.int8_t)(funcNameCStr), (C.callback_fn_i32_t)(C.callbackHandle_cgo_i32), C.int32_t(paramsCount))
 	result = bool(res)
 	return result
 }
 
-func cArrayToSlice(array *C.int32_t, len C.int) []int32 {
+func (we *WasmEngine) RegisterHostFnI64(fnName string, paramsCount int, fn ExecContext) bool {
+	we.register(fnName, fn)
+	funcNameCStr := C.CString(fnName)
+	defer C.free(unsafe.Pointer(funcNameCStr))
+	result := false
+	res := C.register_host_fn_i64(C.int(we.id), (*C.int8_t)(funcNameCStr), (C.callback_fn_i64_t)(C.callbackHandle_cgo_i64), C.int32_t(paramsCount))
+	result = bool(res)
+	return result
+}
+
+func cArrayToSliceI32(array *C.int32_t, len C.int) []int32 {
 	var list []int32
 	sliceHeader := (*reflect.SliceHeader)(unsafe.Pointer(&list))
 	sliceHeader.Cap = int(len)
@@ -175,27 +193,35 @@ func cArrayToSlice(array *C.int32_t, len C.int) []int32 {
 	return list
 }
 
-func cArrayToString(array *C.char, len C.int) string {
-	var list []byte
+func cArrayToSliceI64(array *C.int64_t, len C.int) []int64 {
+	var list []int64
 	sliceHeader := (*reflect.SliceHeader)(unsafe.Pointer(&list))
 	sliceHeader.Cap = int(len)
 	sliceHeader.Len = int(len)
 	sliceHeader.Data = uintptr(unsafe.Pointer(array))
+	return list
+}
+
+func cArrayToString(charPtr *C.char, len C.int) string {
+	var list []byte
+	sliceHeader := (*reflect.SliceHeader)(unsafe.Pointer(&list))
+	sliceHeader.Cap = int(len)
+	sliceHeader.Len = int(len)
+	sliceHeader.Data = uintptr(unsafe.Pointer(charPtr))
 	return string(list)
 }
 
-func cCharPtrToString(p *C.char) string {
-	s := C.GoString(p)
-	C.free(unsafe.Pointer(p))
+func cCharPtrToString(charPtr *C.char) string {
+	s := C.GoString(charPtr)
+	C.free(unsafe.Pointer(charPtr))
 	return s
 }
 
-//export callbackHandle_cgo
-func callbackHandle_cgo(engine_id C.int32_t, fn_name *C.char, data *C.int32_t, data_len C.int32_t) {
-	//const FN_NAME = "_evm_return"
+//export callbackHandle_cgo_i32
+func callbackHandle_cgo_i32(engine_id C.int32_t, fn_name *C.char, fn_name_len C.int32_t, data *C.int32_t, data_len C.int32_t) {
 	engineId := int32(engine_id)
 	fnName := cCharPtrToString(fn_name)
-	args := cArrayToSlice(data, data_len)
+	args := cArrayToSliceI32(data, data_len)
 	wasmEngine := wasmEnginesPool.Get(engineId)
 	if wasmEngine == nil {
 		log.Panicf("wasm engine id %d doesn't exist", engineId)
@@ -204,6 +230,26 @@ func callbackHandle_cgo(engine_id C.int32_t, fn_name *C.char, data *C.int32_t, d
 	if cb, ok := execContext.(func(params []int32)); ok {
 		cb(args[1:])
 	} else {
-		log.Panicf("failed to cast fnName '%s', check registered function\n", fnName)
+		log.Panicf("failed to cast fn '%s' (func(params []int32))\n", fnName)
+	}
+}
+
+//export callbackHandle_cgo_i64
+func callbackHandle_cgo_i64(engine_id C.int32_t, fn_name *C.char, fn_name_len C.int32_t, data *C.int64_t, data_len C.int32_t) {
+	engineId := int32(engine_id)
+	fnName := cArrayToString(fn_name, fn_name_len)
+	fnNameLen := len(fnName)
+	fmt.Printf("fnNameLen %d\n", fnNameLen)
+	fmt.Printf("fn_name_len %d\n", fn_name_len)
+	args := cArrayToSliceI64(data, data_len)
+	wasmEngine := wasmEnginesPool.Get(engineId)
+	if wasmEngine == nil {
+		log.Panicf("wasm engine id %d doesn't exist", engineId)
+	}
+	execContext := wasmEngine.getRegistered(fnName)
+	if cb, ok := execContext.(func(params []int64)); ok {
+		cb(args[1:])
+	} else {
+		log.Panicf("failed to cast fn '%s' to (func(params []int64))\n", fnName)
 	}
 }

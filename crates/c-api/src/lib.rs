@@ -56,9 +56,7 @@ extern "C" fn set_wasm_binary(
 extern "C" fn compute_trace(
     engine_id: i32,
 ) -> repr_c::Vec<u8> {
-    println!("lib compute_trace 1");
     let res = unsafe {FACTORY.compute_trace(engine_id)};
-    println!("lib compute_trace 2");
     match res {
         Some(r) => repr_c::Vec::from(r.as_bytes().to_vec()),
         None => repr_c::Vec::from(Vec::new())
@@ -69,9 +67,7 @@ extern "C" fn compute_trace(
 extern "C" fn memory_data(
     engine_id: i32,
 ) -> repr_c::Vec<u8> {
-    println!("lib memory_data 1");
     let res = unsafe {FACTORY.memory_data(engine_id)};
-    println!("lib memory_data 2");
     match res {
         Some(r) => repr_c::Vec::from(r.to_vec()),
         None => repr_c::Vec::from(Vec::new())
@@ -86,19 +82,17 @@ extern "C" fn trace_memory_change(
     data: *mut u8,
     data_length: usize,
 ) {
-    println!("lib trace_memory_change 1");
     let data = unsafe {
         slice::from_raw_parts(data, data_length)
     };
     unsafe {FACTORY.trace_memory_change(engine_id, offset, len, data)};
-    println!("lib trace_memory_change 2");
 }
 
 #[ffi_export]
-extern "C" fn register_host_fn(
+extern "C" fn register_host_fn_i32(
     engine_id: i32,
     host_fn_name_ptr: *const c_char,
-    host_fn: extern "C" fn(i32, fn_name: *const i8, data: *mut i32, data_length: usize) -> (),
+    host_fn: extern "C" fn(engine_id: i32, fn_name: *const i8, fn_name_len: usize, data: *mut i32, data_length: usize) -> (),
     func_params_count: i32,
 ) -> bool {
     let mut res: bool = false;
@@ -110,16 +104,46 @@ extern "C" fn register_host_fn(
         Ok(hfn_name) => {
             res = true;
             let host_fn_wrapper =  Box::new(move |host_fn_name: String, mut params: Vec<i32>| {
-                let params_ptr = params.as_mut_ptr();
+                let params_mut_ptr = params.as_mut_ptr();
                 let params_len = params.len();
                 mem::forget(params);
                 let hfn_name_c_string = unsafe {CStr::from_bytes_with_nul_unchecked(host_fn_name.as_bytes())};
-                host_fn(engine_id, hfn_name_c_string.as_ptr(), params_ptr, params_len);
+                host_fn(engine_id, hfn_name_c_string.as_ptr(), host_fn_name.len(), params_mut_ptr, params_len);
                 mem::forget(host_fn_name);
             });
-            println!("lib register_host_fn 1: {}", hfn_name);
-            unsafe {FACTORY.register_host_fn(engine_id, hfn_name.to_string(), host_fn_wrapper, func_params_count)};
-            println!("lib register_host_fn 2");
+            unsafe {FACTORY.register_host_fn_i32(engine_id, hfn_name.to_string(), host_fn_wrapper, func_params_count)};
+        },
+        Err(e) => {
+            panic!("failed to convert host fn name slice of bytes to string: {}", e.to_string())
+        }
+    }
+    res
+}
+
+#[ffi_export]
+extern "C" fn register_host_fn_i64(
+    engine_id: i32,
+    host_fn_name_ptr: *const c_char,
+    host_fn: extern "C" fn(engine_id: i32, fn_name: *const i8, fn_name_len: usize, data: *mut i64, data_len: usize) -> (),
+    func_params_count: i32,
+) -> bool {
+    let mut res: bool = false;
+    let hfn_name_bytes = unsafe {
+        CStr::from_ptr(host_fn_name_ptr as *const c_char)
+    };
+    let hfn_name = hfn_name_bytes.to_str();
+    match hfn_name {
+        Ok(hfn_name) => {
+            res = true;
+            let host_fn_wrapper =  Box::new(move |host_fn_name: String, mut params: Vec<i64>| {
+                let params_mut_ptr = params.as_mut_ptr();
+                let params_len = params.len();
+                mem::forget(params);
+                let hfn_name_c_string = unsafe {CStr::from_bytes_with_nul_unchecked(host_fn_name.as_bytes())};
+                host_fn(engine_id, hfn_name_c_string.as_ptr(), host_fn_name.len(), params_mut_ptr, params_len);
+                mem::forget(host_fn_name);
+            });
+            unsafe {FACTORY.register_host_fn_i64(engine_id, hfn_name.to_string(), host_fn_wrapper, func_params_count)};
         },
         Err(e) => {
             panic!("failed to convert host fn name slice of bytes to string: {}", e.to_string())
