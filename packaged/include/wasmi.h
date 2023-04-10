@@ -37,10 +37,7 @@ Vec_uint8_t execute_wasm_binary_to_json (
 
 int32_t create_wasm_engine (void);
 
-
-#include <stdbool.h>
-
-bool set_wasm_binary (
+void set_wasm_binary (
     int32_t engine_id,
     uint8_t * wasm_binary,
     size_t wasm_binary_length);
@@ -58,21 +55,14 @@ void trace_memory_change (
     uint8_t * data,
     size_t data_length);
 
+
+#include <stdbool.h>
+
 bool register_host_fn (
     int32_t engine_id,
     int8_t const * host_fn_name_ptr,
     void (*host_fn)(int32_t, int8_t const *, int32_t *, size_t),
     int32_t func_params_count);
-
-bool register_host_fn_p1_ret0 (
-    int32_t engine_id,
-    int8_t const * host_fn_name_ptr,
-    void (*host_fn)(int32_t, int32_t));
-
-bool register_host_fn_p2_ret0 (
-    int32_t engine_id,
-    int8_t const * host_fn_name_ptr,
-    void (*host_fn)(int32_t, int32_t, int32_t));
 
 
 #ifdef __cplusplus

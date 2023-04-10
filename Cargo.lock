@@ -1257,6 +1257,7 @@ name = "wasmi_c_api_crate"
 version = "0.1.0"
 dependencies = [
  "lazy_static",
+ "once_cell",
  "safer-ffi",
  "wasmi",
  "wasmprinter",

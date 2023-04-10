@@ -1,18 +1,12 @@
-use std::ffi::{c_char, CStr, CString};
+use std::ffi::{c_char, CStr};
 use std::{mem, slice};
-use std::sync::Mutex;
 use safer_ffi::prelude::*;
 use wasmi::{Config, Engine, Linker, Module, Store};
 use crate::engine::proxy_factory::ProxyFactory;
 
 pub mod engine;
 
-#[macro_use]
-extern crate lazy_static;
-
-lazy_static! {
-    static ref FACTORY: Mutex<ProxyFactory> = Mutex::new(ProxyFactory::new());
-}
+static mut FACTORY: once_cell::sync::Lazy<ProxyFactory> = once_cell::sync::Lazy::new(|| ProxyFactory::new());
 
 #[ffi_export]
 extern "C" fn execute_wasm_binary_to_json(
@@ -22,7 +16,6 @@ extern "C" fn execute_wasm_binary_to_json(
     let wasm_binary = unsafe {
         slice::from_raw_parts(wasm_binary, wasm_binary_length)
     };
-    // return wasm_binary;
     let mut config = Config::default();
     config.consume_fuel(false);
     let engine = Engine::new(&config);
@@ -43,10 +36,8 @@ extern "C" fn execute_wasm_binary_to_json(
 
 #[ffi_export]
 extern "C" fn create_wasm_engine() -> i32 {
-    let mut id = 0;
-    let descr = FACTORY.lock().unwrap().new_wasm_engine(None);
-    id = descr.0;
-    id
+    let descr = unsafe {FACTORY.new_wasm_engine(None)};
+    descr.0
 }
 
 #[ffi_export]
@@ -54,23 +45,22 @@ extern "C" fn set_wasm_binary(
     engine_id: i32,
     wasm_binary: *mut u8,
     wasm_binary_length: usize,
-) -> bool {
-    let mut res = false;
+) {
     let wasm_binary = unsafe {
         slice::from_raw_parts(wasm_binary, wasm_binary_length)
     };
-    FACTORY.lock().unwrap().set_wasm_binary(engine_id, &wasm_binary.to_vec());
-    res
+    unsafe {FACTORY.set_wasm_binary(engine_id, &wasm_binary.to_vec())};
 }
 
 #[ffi_export]
 extern "C" fn compute_trace(
     engine_id: i32,
 ) -> repr_c::Vec<u8> {
-    // let mut res: Option<String> = None;
-    let res = FACTORY.lock().unwrap().compute_trace(engine_id);
+    println!("lib compute_trace 1");
+    let res = unsafe {FACTORY.compute_trace(engine_id)};
+    println!("lib compute_trace 2");
     match res {
-        Some(r) => repr_c::Vec::from(r.lock().unwrap().as_bytes().to_vec()),
+        Some(r) => repr_c::Vec::from(r.as_bytes().to_vec()),
         None => repr_c::Vec::from(Vec::new())
     }
 }
@@ -79,9 +69,11 @@ extern "C" fn compute_trace(
 extern "C" fn memory_data(
     engine_id: i32,
 ) -> repr_c::Vec<u8> {
-    let res = FACTORY.lock().unwrap().memory_data(engine_id);
+    println!("lib memory_data 1");
+    let res = unsafe {FACTORY.memory_data(engine_id)};
+    println!("lib memory_data 2");
     match res {
-        Some(r) => repr_c::Vec::from(r.lock().unwrap().clone()),
+        Some(r) => repr_c::Vec::from(r.to_vec()),
         None => repr_c::Vec::from(Vec::new())
     }
 }
@@ -94,10 +86,12 @@ extern "C" fn trace_memory_change(
     data: *mut u8,
     data_length: usize,
 ) {
+    println!("lib trace_memory_change 1");
     let data = unsafe {
         slice::from_raw_parts(data, data_length)
     };
-    FACTORY.lock().unwrap().trace_memory_change(engine_id, offset, len, data);
+    unsafe {FACTORY.trace_memory_change(engine_id, offset, len, data)};
+    println!("lib trace_memory_change 2");
 }
 
 #[ffi_export]
@@ -120,59 +114,15 @@ extern "C" fn register_host_fn(
                 let params_len = params.len();
                 mem::forget(params);
                 let hfn_name_c_string = unsafe {CStr::from_bytes_with_nul_unchecked(host_fn_name.as_bytes())};
-                host_fn(engine_id, hfn_name_c_string.as_ptr(), /*hfn_name_bytes_len,*/ params_ptr, params_len);
+                host_fn(engine_id, hfn_name_c_string.as_ptr(), params_ptr, params_len);
                 mem::forget(host_fn_name);
             });
-            FACTORY.lock().unwrap().register_host_fn(engine_id, hfn_name.to_string(), host_fn_wrapper, func_params_count);
+            println!("lib register_host_fn 1: {}", hfn_name);
+            unsafe {FACTORY.register_host_fn(engine_id, hfn_name.to_string(), host_fn_wrapper, func_params_count)};
+            println!("lib register_host_fn 2");
         },
         Err(e) => {
             panic!("failed to convert host fn name slice of bytes to string: {}", e.to_string())
-        }
-    }
-    res
-}
-
-#[ffi_export]
-extern "C" fn register_host_fn_p1_ret0(
-    engine_id: i32,
-    host_fn_name_ptr: *const c_char,
-    host_fn: extern "C" fn(i32, i32) -> (),
-) -> bool {
-    let mut res: bool = false;
-    let hfn_name_bytes = unsafe {
-        CStr::from_ptr(host_fn_name_ptr as *const c_char)
-    };
-    let hfn_name_res = hfn_name_bytes.to_str();
-    match hfn_name_res {
-        Ok(hfn_name) => {
-            res = true;
-            FACTORY.lock().unwrap().register_host_fn_p1_ret0(engine_id, hfn_name, host_fn);
-        },
-        Err(e) => {
-            panic!("failed to convert host fn name slice of bytes to string: {}", e.to_string())
-        }
-    }
-    res
-}
-
-#[ffi_export]
-extern "C" fn register_host_fn_p2_ret0(
-    engine_id: i32,
-    host_fn_name_ptr: *const c_char,
-    host_fn: extern "C" fn(i32, i32, i32) -> (),
-) -> bool {
-    let mut res: bool = false;
-    let hfn_name_bytes = unsafe {
-        CStr::from_ptr(host_fn_name_ptr as *const c_char)
-    };
-    let hfn_name_res = hfn_name_bytes.to_str();
-    match hfn_name_res {
-        Ok(hfn_name) => {
-            res = true;
-            FACTORY.lock().unwrap().register_host_fn_p2_ret0(engine_id, hfn_name, host_fn);
-        },
-        Err(e) => {
-            panic!("error: failed to convert host fn name slice of bytes to string: {}", e.to_string())
         }
     }
     res

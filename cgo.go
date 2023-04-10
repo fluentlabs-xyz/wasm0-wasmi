@@ -112,10 +112,9 @@ func NewWasmEngine() *WasmEngine {
 	return entity
 }
 
-func (we *WasmEngine) SetWasmBinary(wasmBinary []byte) bool {
+func (we *WasmEngine) SetWasmBinary(wasmBinary []byte) {
 	cVec, cLen := byteArrayToRawPointer(wasmBinary)
-	res := C.set_wasm_binary(C.int(we.id), cVec, cLen)
-	return bool(res)
+	C.set_wasm_binary(C.int(we.id), cVec, cLen)
 }
 
 func (we *WasmEngine) ComputeTrace() (traceJson []byte, err error) {
@@ -157,7 +156,7 @@ func (we *WasmEngine) getRegistered(name string) ExecContext {
 	return found
 }
 
-func (we *WasmEngine) RegisterHostFn2(fnName string, paramsCount int, fn ExecContext) bool {
+func (we *WasmEngine) RegisterHostFn(fnName string, paramsCount int, fn ExecContext) bool {
 	we.register(fnName, fn)
 	funcNameCStr := C.CString(fnName)
 	defer C.free(unsafe.Pointer(funcNameCStr))
