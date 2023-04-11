@@ -24,8 +24,14 @@ build-linux-amd64:
 	cp ./target/x86_64-unknown-linux-gnu/release/libwasmi_c_api.so packaged/lib/linux-amd64/
 build-linux-amd64-docker:
 	docker run --platform=linux/amd64 -v "$(shell pwd):/build" -it rust bash -c "cd /build && make build-linux-amd64"
+build-linux-aarch64:
+	rustup target add aarch64-unknown-linux-gnu
+	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build --target=aarch64-unknown-linux-gnu --manifest-path wasm-instrument-c-api/Cargo.toml --release #--no-default-features $(capi_compiler_features)
+	cp wasm-instrument-c-api/target/aarch64-unknown-linux-gnu/release/libgas_injector.so packaged/lib/linux-amd64/
+build-linux-aarch64-docker:
+	docker run --platform=linux/aarch64 -v "$(shell pwd):/build" -it rust bash -c "cd /build && make build-linux-aarch64"
 
-build: build-apple-amd64 build-apple-aarch64 build-linux-amd64
+build: build-apple-amd64 build-apple-aarch64 build-linux-amd64-docker build-linux-aarch64-docker
 
 generate-headers:
 	cargo run --package wasmi_c_api_crate --bin generate_headers --features=headers
