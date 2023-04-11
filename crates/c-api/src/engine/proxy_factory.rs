@@ -60,8 +60,7 @@ impl<'a> ProxyFactory {
     pub fn compute_trace(&mut self, engine_id: i32) -> Option<String> {
         let we = self.get_wasm_engine(engine_id);
         let trace: String = unsafe { (*we.as_ptr()).compute_trace().unwrap() };
-
-        return Some(trace);
+        Some(trace)
     }
 
     pub fn memory_data(&mut self, engine_id: i32) -> Option<Vec<u8>> {
@@ -71,7 +70,6 @@ impl<'a> ProxyFactory {
     }
 
     pub fn trace_memory_change(&mut self, engine_id: i32, offset: u32, len: u32, data: &[u8]) {
-
         let we = self.get_wasm_engine(engine_id);
         unsafe { (*we.as_ptr()).trace_memory_change(offset, len, data) };
     }
@@ -84,7 +82,7 @@ impl<'a> ProxyFactory {
         func_params_count: i32,
     ) -> bool {
         let res: bool;
-        let func_params_count = func_params_count as usize;
+        let func_params_count = (func_params_count + 1) as usize; // +1 for synthetic engine id param
         let we = self.get_wasm_engine(engine_id);
         if let Ok(_) = self.lock.lock() {
             let register_res: Result<(), String>;
@@ -92,9 +90,6 @@ impl<'a> ProxyFactory {
                 1 => {
                     let wrapped_func = move |fn_name: String, engine_id: i32| {
                         let p = vec![engine_id];
-                        if p.len() != func_params_count {
-                            panic!("expected params count {} got {}", func_params_count, p.len());
-                        }
                         func(fn_name.clone(), p);
                     };
                     let name_cloned = name.clone();
@@ -106,9 +101,6 @@ impl<'a> ProxyFactory {
                 2 => {
                     let wrapped_func = move |fn_name: String, engine_id: i32, p1: i32| {
                         let p = vec![engine_id, p1];
-                        if p.len() != func_params_count {
-                            panic!("expected params count {} got {}", func_params_count, p.len());
-                        }
                         func(fn_name, p);
                     };
                     let name_cloned = name.clone();
@@ -120,9 +112,6 @@ impl<'a> ProxyFactory {
                 3 => {
                     let wrapped_func = move |fn_name: String, engine_id: i32, p1: i32, p2: i32| {
                         let p = vec![engine_id, p1, p2];
-                        if p.len() != func_params_count {
-                            panic!("expected params count {} got {}", func_params_count, p.len());
-                        }
                         func(fn_name, p);
                     };
                     let name_cloned = name.clone();
@@ -134,9 +123,6 @@ impl<'a> ProxyFactory {
                 4 => {
                     let wrapped_func = move |fn_name: String, engine_id: i32, p1: i32, p2: i32, p3: i32| {
                         let p = vec![engine_id, p1, p2, p3];
-                        if p.len() != func_params_count {
-                            panic!("expected params count {} got {}", func_params_count, p.len());
-                        }
                         func(fn_name, p);
                     };
                     let name_cloned = name.clone();
@@ -148,9 +134,6 @@ impl<'a> ProxyFactory {
                 5 => {
                     let wrapped_func = move |fn_name: String, engine_id: i32, p1: i32, p2: i32, p3: i32, p4: i32| {
                         let p = vec![engine_id, p1, p2, p3, p4];
-                        if p.len() != func_params_count {
-                            panic!("expected params count {} got {}", func_params_count, p.len());
-                        }
                         func(fn_name, p);
                     };
                     let name_cloned = name.clone();
@@ -162,9 +145,6 @@ impl<'a> ProxyFactory {
                 6 => {
                     let wrapped_func = move |fn_name: String, engine_id: i32, p1: i32, p2: i32, p3: i32, p4: i32, p5: i32| {
                         let p = vec![engine_id, p1, p2, p3, p4, p5];
-                        if p.len() != func_params_count {
-                            panic!("expected params count {} got {}", func_params_count, p.len());
-                        }
                         func(fn_name, p);
                     };
                     let name_cloned = name.clone();
@@ -176,9 +156,6 @@ impl<'a> ProxyFactory {
                 7 => {
                     let wrapped_func = move |fn_name: String, engine_id: i32, p1: i32, p2: i32, p3: i32, p4: i32, p5: i32, p6: i32| {
                         let p = vec![engine_id, p1, p2, p3, p4, p5, p6];
-                        if p.len() != func_params_count {
-                            panic!("expected params count {} got {}", func_params_count, p.len());
-                        }
                         func(fn_name, p);
                     };
                     let name_cloned = name.clone();
@@ -190,9 +167,6 @@ impl<'a> ProxyFactory {
                 8 => {
                     let wrapped_func = move |fn_name: String, engine_id: i32, p1: i32, p2: i32, p3: i32, p4: i32, p5: i32, p6: i32, p7: i32| {
                         let p = vec![engine_id, p1, p2, p3, p4, p5, p6, p7];
-                        if p.len() != func_params_count {
-                            panic!("expected params count {} got {}", func_params_count, p.len());
-                        }
                         func(fn_name, p);
                     };
                     let name_cloned = name.clone();
@@ -204,9 +178,6 @@ impl<'a> ProxyFactory {
                 9 => {
                     let wrapped_func = move |fn_name: String, engine_id: i32, p1: i32, p2: i32, p3: i32, p4: i32, p5: i32, p6: i32, p7: i32, p8: i32| {
                         let p = vec![engine_id, p1, p2, p3, p4, p5, p6, p7, p8];
-                        if p.len() != func_params_count {
-                            panic!("expected params count {} got {}", func_params_count, p.len());
-                        }
                         func(fn_name, p);
                     };
                     let name_cloned = name.clone();
@@ -219,7 +190,7 @@ impl<'a> ProxyFactory {
             }
             match register_res {
                 Ok(_) => { res = true; },
-                Err(e) => { panic!("failed to register host fn: {}", e) }
+                Err(err) => { panic!("failed to register host fn: {}", err) }
             }
         } else {
             panic!("lock failed")
@@ -235,7 +206,7 @@ impl<'a> ProxyFactory {
         func_params_count: i32,
     ) -> bool {
         let res: bool;
-        let func_params_count = func_params_count as usize;
+        let func_params_count = (func_params_count + 1) as usize; // +1 for synthetic engine id param
         let we = self.get_wasm_engine(engine_id);
         if let Ok(_) = self.lock.lock() {
             let register_res: Result<(), String>;
@@ -243,9 +214,6 @@ impl<'a> ProxyFactory {
                 1 => {
                     let wrapped_func = move |fn_name: String, engine_id: i64| {
                         let p = vec![engine_id];
-                        if p.len() != func_params_count {
-                            panic!("expected params count {} got {}", func_params_count, p.len());
-                        }
                         func(fn_name.clone(), p);
                     };
                     let name_cloned = name.clone();
@@ -257,9 +225,6 @@ impl<'a> ProxyFactory {
                 2 => {
                     let wrapped_func = move |fn_name: String, engine_id: i64, p1: i64| {
                         let p = vec![engine_id, p1];
-                        if p.len() != func_params_count {
-                            panic!("expected params count {} got {}", func_params_count, p.len());
-                        }
                         func(fn_name, p);
                     };
                     let name_cloned = name.clone();
@@ -271,9 +236,6 @@ impl<'a> ProxyFactory {
                 3 => {
                     let wrapped_func = move |fn_name: String, engine_id: i64, p1: i64, p2: i64| {
                         let p = vec![engine_id, p1, p2];
-                        if p.len() != func_params_count {
-                            panic!("expected params count {} got {}", func_params_count, p.len());
-                        }
                         func(fn_name, p);
                     };
                     let name_cloned = name.clone();
@@ -285,9 +247,6 @@ impl<'a> ProxyFactory {
                 4 => {
                     let wrapped_func = move |fn_name: String, engine_id: i64, p1: i64, p2: i64, p3: i64| {
                         let p = vec![engine_id, p1, p2, p3];
-                        if p.len() != func_params_count {
-                            panic!("expected params count {} got {}", func_params_count, p.len());
-                        }
                         func(fn_name, p);
                     };
                     let name_cloned = name.clone();
@@ -299,9 +258,6 @@ impl<'a> ProxyFactory {
                 5 => {
                     let wrapped_func = move |fn_name: String, engine_id: i64, p1: i64, p2: i64, p3: i64, p4: i64| {
                         let p = vec![engine_id, p1, p2, p3, p4];
-                        if p.len() != func_params_count {
-                            panic!("expected params count {} got {}", func_params_count, p.len());
-                        }
                         func(fn_name, p);
                     };
                     let name_cloned = name.clone();
@@ -313,9 +269,6 @@ impl<'a> ProxyFactory {
                 6 => {
                     let wrapped_func = move |fn_name: String, engine_id: i64, p1: i64, p2: i64, p3: i64, p4: i64, p5: i64| {
                         let p = vec![engine_id, p1, p2, p3, p4, p5];
-                        if p.len() != func_params_count {
-                            panic!("expected params count {} got {}", func_params_count, p.len());
-                        }
                         func(fn_name, p);
                     };
                     let name_cloned = name.clone();
@@ -327,9 +280,6 @@ impl<'a> ProxyFactory {
                 7 => {
                     let wrapped_func = move |fn_name: String, engine_id: i64, p1: i64, p2: i64, p3: i64, p4: i64, p5: i64, p6: i64| {
                         let p = vec![engine_id, p1, p2, p3, p4, p5, p6];
-                        if p.len() != func_params_count {
-                            panic!("expected params count {} got {}", func_params_count, p.len());
-                        }
                         func(fn_name, p);
                     };
                     let name_cloned = name.clone();
@@ -341,9 +291,6 @@ impl<'a> ProxyFactory {
                 8 => {
                     let wrapped_func = move |fn_name: String, engine_id: i64, p1: i64, p2: i64, p3: i64, p4: i64, p5: i64, p6: i64, p7: i64| {
                         let p = vec![engine_id, p1, p2, p3, p4, p5, p6, p7];
-                        if p.len() != func_params_count {
-                            panic!("expected params count {} got {}", func_params_count, p.len());
-                        }
                         func(fn_name, p);
                     };
                     let name_cloned = name.clone();
@@ -355,9 +302,6 @@ impl<'a> ProxyFactory {
                 9 => {
                     let wrapped_func = move |fn_name: String, engine_id: i64, p1: i64, p2: i64, p3: i64, p4: i64, p5: i64, p6: i64, p7: i64, p8: i64| {
                         let p = vec![engine_id, p1, p2, p3, p4, p5, p6, p7, p8];
-                        if p.len() != func_params_count {
-                            panic!("expected params count {} got {}", func_params_count, p.len());
-                        }
                         func(fn_name, p);
                     };
                     let name_cloned = name.clone();
@@ -370,7 +314,7 @@ impl<'a> ProxyFactory {
             }
             match register_res {
                 Ok(_) => { res = true; },
-                Err(e) => { panic!("failed to register host fn: {}", e) }
+                Err(err) => { panic!("failed to register host fn: {}", err) }
             }
         } else {
             panic!("lock failed")

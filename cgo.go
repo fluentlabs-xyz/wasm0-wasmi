@@ -23,14 +23,14 @@ void callbackHandle_cgo_i64(int32_t engine_id, char* fn_name, int32_t fn_name_le
 import "C"
 
 import (
-    _ "embed"
-    "log"
-    "reflect"
-    "sync"
-    "unsafe"
+	_ "embed"
+	"log"
+	"reflect"
+	"sync"
+	"unsafe"
 
-    _ "github.com/wasm0/zkwasm-wasmi/packaged/include"
-    _ "github.com/wasm0/zkwasm-wasmi/packaged/lib"
+	_ "github.com/wasm0/zkwasm-wasmi/packaged/include"
+	_ "github.com/wasm0/zkwasm-wasmi/packaged/lib"
 )
 
 func byteArrayToRawPointer(input []byte) (*C.uchar, C.size_t) {
@@ -225,7 +225,7 @@ func callbackHandle_cgo_i32(engine_id C.int32_t, fn_name *C.char, fn_name_len C.
 	}
 	execContext := wasmEngine.getRegistered(fnName)
 	if cb, ok := execContext.(func(params []int32)); ok {
-		cb(args[1:])
+		cb(args[1:]) // start from index 1 to get rid of engine id value
 	} else {
 		log.Panicf("failed to cast fn '%s' (func(params []int32))\n", fnName)
 	}
