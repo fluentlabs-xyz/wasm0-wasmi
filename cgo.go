@@ -12,9 +12,11 @@ package zkwasm_wasmi
 #include <stdint.h>
 #include <stdlib.h>
 
+typedef void (*callback_fn_json_trace)(int32_t engine_id, char* json_trace, int32_t json_trace_len);
 typedef void (*callback_fn_i32_t)(int32_t engine_id, char* fn_name, int32_t fn_name_len, int32_t* data, int32_t data_len);
 typedef void (*callback_fn_i64_t)(int32_t engine_id, char* fn_name, int32_t fn_name_len, int64_t* data, int32_t data_len);
 
+void callbackHandle_cgo_on_item_added_to_logs(int32_t engine_id, char* json_trace, int32_t json_trace_len);
 void callbackHandle_cgo_i32(int32_t engine_id, char* fn_name, int32_t fn_name_len, int32_t* data, int32_t data_len);
 void callbackHandle_cgo_i64(int32_t engine_id, char* fn_name, int32_t fn_name_len, int64_t* data, int32_t data_len);
 
@@ -84,15 +86,13 @@ func (wep *WasmEnginesPool) Get(id int32) *WasmEngine {
 
 var wasmEnginesPool = NewWasmEnginesPool()
 
-type WasmEngine struct {
-	id                int32
-	execContexts      map[string]ExecContext
-	execContextsMutex sync.Mutex
-}
+type Callback interface{}
 
-type ExecContext interface {
-	//Callback interface{}
-	//Context  interface{}
+type WasmEngine struct {
+	id                             int32
+	execContexts                   map[string]Callback
+	execContextsMutex              sync.Mutex
+	onAfterItemAddedToLogsCallback Callback
 }
 
 func createWasmEngine() (id int32, err error) {
@@ -105,7 +105,7 @@ func NewWasmEngine() *WasmEngine {
 	id, _ := createWasmEngine()
 	entity := &WasmEngine{
 		id:           id,
-		execContexts: make(map[string]ExecContext),
+		execContexts: make(map[string]Callback),
 	}
 	ok := wasmEnginesPool.Add(id, entity)
 	if !ok {
@@ -137,23 +137,20 @@ func (we *WasmEngine) TraceMemoryChange(offset, len uint32, data []byte) (err er
 	return nil
 }
 
-func (we *WasmEngine) register(name string, execContext ExecContext) {
+func (we *WasmEngine) register(name string, callback Callback) {
 	we.execContextsMutex.Lock()
 	defer we.execContextsMutex.Unlock()
 
 	if _, ok := we.execContexts[name]; ok {
 		log.Panicf("name '%s' already occupied\n", name)
 	}
-	we.execContexts[name] = execContext
+	we.execContexts[name] = callback
 }
 
-func (we *WasmEngine) getRegistered(name string) ExecContext {
+func (we *WasmEngine) getRegistered(name string) Callback {
 	we.execContextsMutex.Lock()
 	defer we.execContextsMutex.Unlock()
 
-	//if strings.HasPrefix(name, "gas") {
-	//	name = "gas"
-	//}
 	found, ok := we.execContexts[name]
 	if !ok {
 		log.Panicf("no exec context registered for '%s'\n", name)
@@ -161,8 +158,17 @@ func (we *WasmEngine) getRegistered(name string) ExecContext {
 	return found
 }
 
-func (we *WasmEngine) RegisterHostFnI32(fnName string, paramsCount int, fn ExecContext) bool {
-	we.register(fnName, fn)
+func (we *WasmEngine) RegisterCallbackOnAfterItemAddedToLogs(callback Callback) {
+	we.onAfterItemAddedToLogsCallback = callback
+	C.register_cb_on_after_item_added_to_logs(C.int(we.id), (C.callback_fn_json_trace)(C.callbackHandle_cgo_on_item_added_to_logs))
+}
+
+func (we *WasmEngine) UnRegisterOnAfterItemAddedToLogsCallback() {
+	we.onAfterItemAddedToLogsCallback = nil
+}
+
+func (we *WasmEngine) RegisterHostFnI32(fnName string, paramsCount int, callback Callback) bool {
+	we.register(fnName, callback)
 	funcNameCStr := C.CString(fnName)
 	defer C.free(unsafe.Pointer(funcNameCStr))
 	result := false
@@ -171,8 +177,8 @@ func (we *WasmEngine) RegisterHostFnI32(fnName string, paramsCount int, fn ExecC
 	return result
 }
 
-func (we *WasmEngine) RegisterHostFnI64(fnName string, paramsCount int, fn ExecContext) bool {
-	we.register(fnName, fn)
+func (we *WasmEngine) RegisterHostFnI64(fnName string, paramsCount int, callback Callback) bool {
+	we.register(fnName, callback)
 	funcNameCStr := C.CString(fnName)
 	defer C.free(unsafe.Pointer(funcNameCStr))
 	result := false
@@ -212,6 +218,23 @@ func cCharPtrToString(charPtr *C.char) string {
 	s := C.GoString(charPtr)
 	C.free(unsafe.Pointer(charPtr))
 	return s
+}
+
+//export callbackHandle_cgo_on_item_added_to_logs
+func callbackHandle_cgo_on_item_added_to_logs(engine_id C.int32_t, json_trace *C.char, json_trace_len C.int32_t) {
+	engineId := int32(engine_id)
+	jsonTrace := cArrayToString(json_trace, json_trace_len)
+	wasmEngine := wasmEnginesPool.Get(engineId)
+	if wasmEngine == nil {
+		log.Panicf("wasm engine id %d doesn't exist", engineId)
+	}
+	if wasmEngine.onAfterItemAddedToLogsCallback != nil {
+		if cb, ok := wasmEngine.onAfterItemAddedToLogsCallback.(func(jsonTrace string)); ok {
+			cb(jsonTrace)
+		} else {
+			log.Panicf("registered callback (engine id %d) has invalid type", engineId)
+		}
+	}
 }
 
 //export callbackHandle_cgo_i32

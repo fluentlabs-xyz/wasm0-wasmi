@@ -89,6 +89,19 @@ extern "C" fn trace_memory_change(
 }
 
 #[ffi_export]
+extern "C" fn register_cb_on_after_item_added_to_logs(
+    engine_id: i32,
+    cb: extern "C" fn(engine_id: i32, json_trace: *const i8, json_trace_len: usize) -> (),
+) {
+    let cb_wrapper =  move |engine_id: i32, json_trace: String| {
+        let json_trace_c_string = unsafe {CStr::from_bytes_with_nul_unchecked(json_trace.as_bytes())};
+        cb(engine_id, json_trace_c_string.as_ptr(), json_trace.len());
+        mem::forget(json_trace_c_string);
+    };
+    unsafe {FACTORY.register_cb_on_after_item_added_to_logs(engine_id, Box::new(cb_wrapper))};
+}
+
+#[ffi_export]
 extern "C" fn register_host_fn_i32(
     engine_id: i32,
     host_fn_name_ptr: *const c_char,

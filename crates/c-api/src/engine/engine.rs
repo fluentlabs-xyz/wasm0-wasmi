@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::sync::{Mutex};
-use wasmi::{Config, Engine, Error, ExternType, Func, Instance, IntoFunc, Linker, Module, Store};
+use wasmi::{Config, Engine, Error, ExternType, Func, Instance, IntoFunc, Linker, Module, OpCodeState, Store};
 
 #[derive(Debug)]
 pub struct WasmEngine {
@@ -89,38 +89,27 @@ impl WasmEngine {
             Ok(_) => {
                 let mut memory_chunk_indexes: Vec<(usize, usize)> = Vec::new();
                 let instance = self.instance.unwrap();
-                for export in instance.exports(&self.store) {
-                    if export.name() != "memory" { continue }
-                    if let ExternType::Memory(_) = export.ty(&self.store) {
-                        let export = instance.get_export(&self.store, export.name());
-                        if let Some(export) = export {
-                            if let Some(memory) = export.into_memory() {
-                                let mem_data = memory.data(&self.store);
-                                let mut i: usize = 0;
-                                let mem_data_len = mem_data.len();
-                                while i < mem_data_len {
-                                    if mem_data[i] != 0 {
-                                        let start = i;
-                                        while i < mem_data_len && mem_data[i] != 0 { i += 1 }
-                                        let end = i - 1;
-                                        memory_chunk_indexes.push((start, end));
-                                    }
-                                    i += 1;
-                                }
-                            }
-                        }
+                let mem_data = self.fetch_memory_data_no_lock(&instance);
+                let mem_data_len = mem_data.len();
+                let mut i: usize = 0;
+                while i < mem_data_len {
+                    if mem_data[i] != 0 {
+                        let start = i;
+                        while i < mem_data_len && mem_data[i] != 0 { i += 1 }
+                        let end = i - 1;
+                        memory_chunk_indexes.push((start, end));
                     }
+                    i += 1;
                 }
-                let memory_data = self.fetch_memory_data_no_lock(&instance);
                 for (start, end) in memory_chunk_indexes {
-                    self.store.tracer.global_memory(start as u32, (end - start + 1) as u32, &memory_data[start..=end]);
+                    self.store.tracer.global_memory(start as u32, (end - start + 1) as u32, &mem_data[start..=end]);
                 }
                 let f = instance.get_func(&self.store, "main").unwrap();
                 func = f.typed::<(), ()>(&self.store).unwrap();
             },
             Err(_) => panic!("lock failed")
         }
-        // cannot lock this lines: wasm calls host functions which may call back to wasmi functions containing lock (deadlock possibility)
+        // do not lock the lines below: wasm calls host functions which may call back to wasmi containing lock
         func.call(&mut self.store, ()).unwrap();
         let json_body = match self.lock.lock() {
             Ok(_) => {
@@ -172,7 +161,7 @@ impl WasmEngine {
         }
     }
 
-    pub fn register_host_fn<Params, Results>(&mut self, name: String, func: impl IntoFunc<(), Params, Results>) -> Result<(), String> {
+    pub fn add_host_fn_cb<Params, Results>(&mut self, name: String, func: impl IntoFunc<(), Params, Results>) -> Result<(), String> {
         match self.lock.lock() {
             Ok(_) => {
                 if self.host_fns.contains_key(name.as_str()) {
@@ -184,5 +173,9 @@ impl WasmEngine {
             Err(_) => panic!("lock failed")
         }
         Ok(())
+    }
+
+    pub fn register_cb_on_after_item_added_to_logs(&mut self, cb: Box<dyn Fn(OpCodeState)>) {
+        self.store.tracer.set_cb_on_after_item_added_to_logs(cb)
     }
 }

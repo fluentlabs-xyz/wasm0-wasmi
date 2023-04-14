@@ -1,7 +1,7 @@
 use crate::engine::bytecode::Instruction;
 use crate::engine::DropKeep;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct OpCode(pub Instruction);
 
 impl OpCode {

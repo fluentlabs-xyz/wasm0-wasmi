@@ -119,6 +119,7 @@ pub mod errors {
 
 pub use self::{
     engine::{
+        tracer::OpCodeState,
         Config,
         Engine,
         FuelConsumptionMode,

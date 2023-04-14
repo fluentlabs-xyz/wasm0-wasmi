@@ -1,3 +1,4 @@
+use core::fmt::{Debug, Formatter};
 use std::cell::RefCell;
 
 use serde::{Serialize, Serializer};
@@ -8,7 +9,7 @@ use wasmi_core::UntypedValue;
 use crate::engine::bytecode::{InstrMeta, Instruction};
 use crate::engine::opcode::OpCode;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct MemoryState {
     pub offset: u32,
     pub len: u32,
@@ -25,7 +26,7 @@ impl Serialize for MemoryState {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct OpCodeState {
     pub program_counter: u32,
     pub opcode: OpCode,
@@ -77,12 +78,19 @@ impl Serialize for FunctionMeta {
 }
 
 
-#[derive(Default, Debug)]
+#[derive(Default)]
 pub struct Tracer {
     global_memory: Vec<MemoryState>,
     logs: Vec<OpCodeState>,
+    cb_on_after_item_added_to_logs: Option<Box<dyn Fn(OpCodeState)>>,
     memory_changes: RefCell<Vec<MemoryState>>,
     fns_meta: Vec<FunctionMeta>,
+}
+
+impl Debug for Tracer {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        write!(f, "global_memory: {:?}; logs: {:?}; memory_changes: {:?}; fns_meta: {:?}", self.global_memory, self.logs, self.memory_changes, self.fns_meta)
+    }
 }
 
 impl Serialize for Tracer {
@@ -121,14 +129,26 @@ impl Tracer {
             .iter()
             .map(|v| v.to_bits())
             .collect();
-        self.logs.push(OpCodeState {
+        let opcode_state = OpCodeState {
             program_counter,
             opcode: OpCode(opcode),
             memory_changes,
             stack,
             source_pc: meta.source_pc(),
             code: meta.opcode(),
-        });
+        };
+        self.logs.push(opcode_state.clone());
+        if let Some(cb) = &self.cb_on_after_item_added_to_logs {
+            cb(opcode_state)
+        }
+    }
+
+    pub fn set_cb_on_after_item_added_to_logs(&mut self, cb: Box<dyn Fn(OpCodeState)>) {
+        self.cb_on_after_item_added_to_logs = Some(cb);
+    }
+
+    pub fn reset_cb_on_after_item_added_to_logs(&mut self) {
+        self.cb_on_after_item_added_to_logs = None;
     }
 
     pub fn function_call(

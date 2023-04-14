@@ -55,6 +55,10 @@ void trace_memory_change (
     uint8_t * data,
     size_t data_length);
 
+void register_cb_on_after_item_added_to_logs (
+    int32_t engine_id,
+    void (*cb)(int32_t, int8_t const *, size_t));
+
 
 #include <stdbool.h>
 
