@@ -98,11 +98,6 @@ impl<'a> ProxyFactory {
             cb(engine_id, serde_json::to_string(&opcode_state).unwrap())
         };
         unsafe { (*we.as_ptr()).register_cb_on_after_item_added_to_logs(Box::new(synthetic_cb)) };
-        /*if let Ok(_) = self.lock.lock() {
-            self.engine_id_to_logs_after_item_added_cb.insert(eid, cb);
-        } else {
-            panic!("lock failed")
-        }*/
     }
 
     pub fn register_host_fn_i32(

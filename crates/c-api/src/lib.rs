@@ -95,7 +95,7 @@ extern "C" fn register_cb_on_after_item_added_to_logs(
 ) {
     let cb_wrapper =  move |engine_id: i32, json_trace: String| {
         let json_trace_c_string = unsafe {CStr::from_bytes_with_nul_unchecked(json_trace.as_bytes())};
-        cb(engine_id, json_trace_c_string.as_ptr(), json_trace.len());
+        cb(engine_id, json_trace_c_string.as_ptr() as *const i8, json_trace.len());
         mem::forget(json_trace_c_string);
     };
     unsafe {FACTORY.register_cb_on_after_item_added_to_logs(engine_id, Box::new(cb_wrapper))};
@@ -121,7 +121,7 @@ extern "C" fn register_host_fn_i32(
                 let params_len = params.len();
                 mem::forget(params);
                 let hfn_name_c_string = unsafe {CStr::from_bytes_with_nul_unchecked(host_fn_name.as_bytes())};
-                let res = host_fn(engine_id, hfn_name_c_string.as_ptr(), host_fn_name.len(), params_mut_ptr, params_len);
+                let res = host_fn(engine_id, hfn_name_c_string.as_ptr() as *const i8, host_fn_name.len(), params_mut_ptr, params_len);
                 mem::forget(host_fn_name);
                 res
             });
@@ -154,7 +154,7 @@ extern "C" fn register_host_fn_i64(
                 let params_len = params.len();
                 mem::forget(params);
                 let hfn_name_c_string = unsafe {CStr::from_bytes_with_nul_unchecked(host_fn_name.as_bytes())};
-                let res = host_fn(engine_id, hfn_name_c_string.as_ptr(), host_fn_name.len(), params_mut_ptr, params_len);
+                let res = host_fn(engine_id, hfn_name_c_string.as_ptr() as *const i8, host_fn_name.len(), params_mut_ptr, params_len);
                 mem::forget(host_fn_name);
                 res
             });
