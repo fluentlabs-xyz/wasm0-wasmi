@@ -65,13 +65,13 @@ void register_cb_on_after_item_added_to_logs (
 bool register_host_fn_i32 (
     int32_t engine_id,
     int8_t const * host_fn_name_ptr,
-    void (*host_fn)(int32_t, int8_t const *, size_t, int32_t *, size_t),
+    int32_t (*host_fn)(int32_t, int8_t const *, size_t, int32_t *, size_t),
     int32_t func_params_count);
 
 bool register_host_fn_i64 (
     int32_t engine_id,
     int8_t const * host_fn_name_ptr,
-    void (*host_fn)(int32_t, int8_t const *, size_t, int64_t *, size_t),
+    int32_t (*host_fn)(int32_t, int8_t const *, size_t, int64_t *, size_t),
     int32_t func_params_count);
 
 

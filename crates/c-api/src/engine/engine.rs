@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 use std::sync::{Mutex};
-use wasmi::{Config, Engine, Error, ExternType, Func, Instance, IntoFunc, Linker, Module, OpCodeState, Store};
+use wasmi::{AsContext, AsContextMut, Config, Engine, Error, ExternType, Func, Instance, IntoFunc, Linker, Module, OpCodeState, ResumableCall, Store, TypedResumableCall};
+use wasmi::core::Trap;
+use wasmi::ResumableCall::Resumable;
 
 #[derive(Debug)]
 pub struct WasmEngine {
@@ -110,7 +112,14 @@ impl WasmEngine {
             Err(_) => panic!("lock failed")
         }
         // do not lock the lines below: wasm calls host functions which may call back to wasmi containing lock
-        func.call(&mut self.store, ()).unwrap();
+        let call = func.call_resumable(&mut self.store, ()).unwrap();
+        match call {
+            TypedResumableCall::Finished(_) => {}
+            TypedResumableCall::Resumable(invocation) => {
+                let host_err = invocation.host_error();
+                return Ok(format!("error:{}", host_err.i32_exit_status().unwrap()))
+            }
+        }
         let json_body = match self.lock.lock() {
             Ok(_) => {
                 self.store.tracer.to_json()

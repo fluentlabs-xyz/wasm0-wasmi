@@ -5,7 +5,8 @@
   (func (;1;) (type 1)
     i32.const 1048576
     i32.const 12
-    call 0)
+    call 0
+  )
   (memory (;0;) 17)
   (global (;0;) (mut i32) (i32.const 1048576))
   (global (;1;) i32 (i32.const 1048588))
