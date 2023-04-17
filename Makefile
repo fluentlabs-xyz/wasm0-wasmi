@@ -31,6 +31,7 @@ build-linux-aarch64:
 build-linux-aarch64-docker:
 	docker run --rm --platform=linux/aarch64 -v "$(shell pwd):/build" -it rust bash -c "cd /build && make build-linux-aarch64"
 
+build-apple: build-apple-aarch64 build-apple-amd64
 build: build-apple-amd64 build-apple-aarch64 build-linux-amd64-docker build-linux-aarch64-docker
 
 generate-headers:
