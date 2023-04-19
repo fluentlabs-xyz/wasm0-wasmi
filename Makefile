@@ -23,13 +23,15 @@ build-linux-amd64:
 	mkdir -p packaged/lib/linux-amd64/
 	cp ./target/x86_64-unknown-linux-gnu/release/libwasmi_c_api.so packaged/lib/linux-amd64/
 build-linux-amd64-docker:
-	docker run --rm --platform=linux/amd64 -v "$(shell pwd):/build" -it rust bash -c "cd /build ; make build-linux-amd64"
+	docker build -t rust/wasmi--linux-amd64 -f Dockerfile .
+	docker run --rm --platform=linux/amd64 -v "$(shell pwd):/build" -it rust/wasmi--linux-amd64 bash -c "cd /build ; make build-linux-amd64"
 build-linux-aarch64:
 	rustup target add aarch64-unknown-linux-gnu
 	CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER=x86_64-unknown-linux-gnu-gcc $(CARGO_BINARY) build --target=x86_64-unknown-linux-gnu --manifest-path ./crates/c-api/Cargo.toml --release
 	cp ./target/x86_64-unknown-linux-gnu/release/libwasmi_c_api.so packaged/lib/linux-aarch64/
 build-linux-aarch64-docker:
-	docker run --rm --platform=linux/aarch64 -v "$(shell pwd):/build" -it rust bash -c "cd /build && make build-linux-aarch64"
+	docker build -t rust/wasmi--linux-aarch64 -f Dockerfile .
+	docker run --rm --platform=linux/aarch64 -v "$(shell pwd):/build" -it rust/wasmi--linux-aarch64 bash -c "cd /build && make build-linux-aarch64"
 
 build-apple: build-apple-aarch64 build-apple-amd64
 build: build-apple-amd64 build-apple-aarch64 build-linux-amd64-docker build-linux-aarch64-docker

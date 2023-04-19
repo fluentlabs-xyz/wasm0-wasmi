@@ -105,7 +105,7 @@ extern "C" fn register_cb_on_after_item_added_to_logs(
 extern "C" fn register_host_fn_i32(
     engine_id: i32,
     host_fn_name_ptr: *const c_char,
-    host_fn: extern "C" fn(engine_id: i32, fn_name: *const i8, fn_name_len: usize, data: *mut i32, data_length: usize) -> (),
+    host_fn: extern "C" fn(engine_id: i32, fn_name: *const i8, fn_name_len: usize, data: *mut i32, data_length: usize) -> i32,
     func_params_count: i32,
 ) -> bool {
     let mut res: bool = false;
@@ -116,13 +116,14 @@ extern "C" fn register_host_fn_i32(
     match hfn_name {
         Ok(hfn_name) => {
             res = true;
-            let host_fn_wrapper =  Box::new(move |host_fn_name: String, mut params: Vec<i32>| {
+            let host_fn_wrapper =  Box::new(move |host_fn_name: String, mut params: Vec<i32>| -> i32 {
                 let params_mut_ptr = params.as_mut_ptr();
                 let params_len = params.len();
                 mem::forget(params);
                 let hfn_name_c_string = unsafe {CStr::from_bytes_with_nul_unchecked(host_fn_name.as_bytes())};
-                host_fn(engine_id, hfn_name_c_string.as_ptr() as *const i8, host_fn_name.len(), params_mut_ptr, params_len);
+                let res = host_fn(engine_id, hfn_name_c_string.as_ptr() as *const i8, host_fn_name.len(), params_mut_ptr, params_len);
                 mem::forget(host_fn_name);
+                res
             });
             unsafe {FACTORY.register_host_fn_i32(engine_id, hfn_name.to_string(), host_fn_wrapper, func_params_count)};
         },
@@ -137,7 +138,7 @@ extern "C" fn register_host_fn_i32(
 extern "C" fn register_host_fn_i64(
     engine_id: i32,
     host_fn_name_ptr: *const c_char,
-    host_fn: extern "C" fn(engine_id: i32, fn_name: *const i8, fn_name_len: usize, data: *mut i64, data_len: usize) -> (),
+    host_fn: extern "C" fn(engine_id: i32, fn_name: *const i8, fn_name_len: usize, data: *mut i64, data_len: usize) -> i32,
     func_params_count: i32,
 ) -> bool {
     let mut res: bool = false;
@@ -153,8 +154,9 @@ extern "C" fn register_host_fn_i64(
                 let params_len = params.len();
                 mem::forget(params);
                 let hfn_name_c_string = unsafe {CStr::from_bytes_with_nul_unchecked(host_fn_name.as_bytes())};
-                host_fn(engine_id, hfn_name_c_string.as_ptr() as *const i8, host_fn_name.len(), params_mut_ptr, params_len);
+                let res = host_fn(engine_id, hfn_name_c_string.as_ptr() as *const i8, host_fn_name.len(), params_mut_ptr, params_len);
                 mem::forget(host_fn_name);
+                res
             });
             unsafe {FACTORY.register_host_fn_i64(engine_id, hfn_name.to_string(), host_fn_wrapper, func_params_count)};
         },

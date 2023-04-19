@@ -1,6 +1,7 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
+use wasmi::core::Trap;
 use wasmi::OpCodeState;
 use crate::engine::engine::WasmEngine;
 
@@ -97,18 +98,13 @@ impl<'a> ProxyFactory {
             cb(engine_id, serde_json::to_string(&opcode_state).unwrap())
         };
         unsafe { (*we.as_ptr()).register_cb_on_after_item_added_to_logs(Box::new(synthetic_cb)) };
-        /*if let Ok(_) = self.lock.lock() {
-            self.engine_id_to_logs_after_item_added_cb.insert(eid, cb);
-        } else {
-            panic!("lock failed")
-        }*/
     }
 
     pub fn register_host_fn_i32(
         &mut self,
         engine_id: i32,
         name: String,
-        func: Box<dyn Fn(String, Vec<i32>) -> () + Send + Sync>,
+        func: Box<dyn Fn(String, Vec<i32>) -> i32 + Send + Sync>,
         func_params_count: i32,
     ) -> bool {
         let res: bool;
@@ -118,101 +114,137 @@ impl<'a> ProxyFactory {
             let register_res: Result<(), String>;
             match func_params_count {
                 1 => {
-                    let wrapped_func = move |fn_name: String, engine_id: i32| {
+                    let wrapped_func = move |fn_name: String, engine_id: i32| -> i32 {
                         let p = vec![engine_id];
-                        func(fn_name.clone(), p);
+                        func(fn_name.clone(), p)
                     };
                     let name_cloned = name.clone();
-                    let native_func = move || {
-                        wrapped_func(name.clone(), engine_id);
+                    let native_func = move || -> Result<(), Trap> {
+                        let res = wrapped_func(name.clone(), engine_id);
+                        match res {
+                            0 => Ok(()),
+                            err_code => Err(Trap::i32_exit(err_code))
+                        }
                     };
                     register_res = unsafe { (*we.as_ptr()).add_host_fn_cb(name_cloned, native_func) };
                 },
                 2 => {
-                    let wrapped_func = move |fn_name: String, engine_id: i32, p1: i32| {
+                    let wrapped_func = move |fn_name: String, engine_id: i32, p1: i32| -> i32 {
                         let p = vec![engine_id, p1];
-                        func(fn_name, p);
+                        func(fn_name, p)
                     };
                     let name_cloned = name.clone();
-                    let native_func = move |p1: i32| {
-                        wrapped_func(name.clone(), engine_id, p1);
+                    let native_func = move |p1: i32| -> Result<(), Trap> {
+                        let res = wrapped_func(name.clone(), engine_id, p1);
+                        match res {
+                            0 => Ok(()),
+                            err_code => Err(Trap::i32_exit(err_code))
+                        }
                     };
                     register_res = unsafe { (*we.as_ptr()).add_host_fn_cb(name_cloned, native_func) };
                 },
                 3 => {
-                    let wrapped_func = move |fn_name: String, engine_id: i32, p1: i32, p2: i32| {
+                    let wrapped_func = move |fn_name: String, engine_id: i32, p1: i32, p2: i32| -> i32 {
                         let p = vec![engine_id, p1, p2];
-                        func(fn_name, p);
+                        func(fn_name, p)
                     };
                     let name_cloned = name.clone();
-                    let native_func = move |p1: i32, p2: i32| {
-                        wrapped_func(name.clone(), engine_id, p1, p2);
+                    let native_func = move |p1: i32, p2: i32| -> Result<(), Trap> {
+                        let res = wrapped_func(name.clone(), engine_id, p1, p2);
+                        match res {
+                            0 => Ok(()),
+                            err_code => Err(Trap::i32_exit(err_code))
+                        }
                     };
                     register_res = unsafe { (*we.as_ptr()).add_host_fn_cb(name_cloned, native_func) };
                 },
                 4 => {
-                    let wrapped_func = move |fn_name: String, engine_id: i32, p1: i32, p2: i32, p3: i32| {
+                    let wrapped_func = move |fn_name: String, engine_id: i32, p1: i32, p2: i32, p3: i32| -> i32 {
                         let p = vec![engine_id, p1, p2, p3];
-                        func(fn_name, p);
+                        func(fn_name, p)
                     };
                     let name_cloned = name.clone();
-                    let native_func = move |p1: i32, p2: i32, p3: i32| {
-                        wrapped_func(name.clone(), engine_id, p1, p2, p3);
+                    let native_func = move |p1: i32, p2: i32, p3: i32| -> Result<(), Trap> {
+                        let res = wrapped_func(name.clone(), engine_id, p1, p2, p3);
+                        match res {
+                            0 => Ok(()),
+                            err_code => Err(Trap::i32_exit(err_code))
+                        }
                     };
                     register_res = unsafe { (*we.as_ptr()).add_host_fn_cb(name_cloned, native_func) };
                 },
                 5 => {
-                    let wrapped_func = move |fn_name: String, engine_id: i32, p1: i32, p2: i32, p3: i32, p4: i32| {
+                    let wrapped_func = move |fn_name: String, engine_id: i32, p1: i32, p2: i32, p3: i32, p4: i32| -> i32 {
                         let p = vec![engine_id, p1, p2, p3, p4];
-                        func(fn_name, p);
+                        func(fn_name, p)
                     };
                     let name_cloned = name.clone();
-                    let native_func = move |p1: i32, p2: i32, p3: i32, p4: i32| {
-                        wrapped_func(name.clone(), engine_id, p1, p2, p3, p4);
+                    let native_func = move |p1: i32, p2: i32, p3: i32, p4: i32| -> Result<(), Trap> {
+                        let res = wrapped_func(name.clone(), engine_id, p1, p2, p3, p4);
+                        match res {
+                            0 => Ok(()),
+                            err_code => Err(Trap::i32_exit(err_code))
+                        }
                     };
                     register_res = unsafe { (*we.as_ptr()).add_host_fn_cb(name_cloned, native_func) };
                 },
                 6 => {
-                    let wrapped_func = move |fn_name: String, engine_id: i32, p1: i32, p2: i32, p3: i32, p4: i32, p5: i32| {
+                    let wrapped_func = move |fn_name: String, engine_id: i32, p1: i32, p2: i32, p3: i32, p4: i32, p5: i32| -> i32 {
                         let p = vec![engine_id, p1, p2, p3, p4, p5];
-                        func(fn_name, p);
+                        func(fn_name, p)
                     };
                     let name_cloned = name.clone();
-                    let native_func = move |p1: i32, p2: i32, p3: i32, p4: i32, p5: i32| {
-                        wrapped_func(name.clone(), engine_id, p1, p2, p3, p4, p5);
+                    let native_func = move |p1: i32, p2: i32, p3: i32, p4: i32, p5: i32| -> Result<(), Trap> {
+                        let res = wrapped_func(name.clone(), engine_id, p1, p2, p3, p4, p5);
+                        match res {
+                            0 => Ok(()),
+                            err_code => Err(Trap::i32_exit(err_code))
+                        }
                     };
                     register_res = unsafe { (*we.as_ptr()).add_host_fn_cb(name_cloned, native_func) };
                 },
                 7 => {
-                    let wrapped_func = move |fn_name: String, engine_id: i32, p1: i32, p2: i32, p3: i32, p4: i32, p5: i32, p6: i32| {
+                    let wrapped_func = move |fn_name: String, engine_id: i32, p1: i32, p2: i32, p3: i32, p4: i32, p5: i32, p6: i32| -> i32 {
                         let p = vec![engine_id, p1, p2, p3, p4, p5, p6];
-                        func(fn_name, p);
+                        func(fn_name, p)
                     };
                     let name_cloned = name.clone();
-                    let native_func = move |p1: i32, p2: i32, p3: i32, p4: i32, p5: i32, p6: i32| {
-                        wrapped_func(name.clone(), engine_id, p1, p2, p3, p4, p5, p6);
+                    let native_func = move |p1: i32, p2: i32, p3: i32, p4: i32, p5: i32, p6: i32| -> Result<(), Trap> {
+                        let res = wrapped_func(name.clone(), engine_id, p1, p2, p3, p4, p5, p6);
+                        match res {
+                            0 => Ok(()),
+                            err_code => Err(Trap::i32_exit(err_code))
+                        }
                     };
                     register_res = unsafe { (*we.as_ptr()).add_host_fn_cb(name_cloned, native_func) };
                 },
                 8 => {
-                    let wrapped_func = move |fn_name: String, engine_id: i32, p1: i32, p2: i32, p3: i32, p4: i32, p5: i32, p6: i32, p7: i32| {
+                    let wrapped_func = move |fn_name: String, engine_id: i32, p1: i32, p2: i32, p3: i32, p4: i32, p5: i32, p6: i32, p7: i32| -> i32 {
                         let p = vec![engine_id, p1, p2, p3, p4, p5, p6, p7];
-                        func(fn_name, p);
+                        func(fn_name, p)
                     };
                     let name_cloned = name.clone();
-                    let native_func = move |p1: i32, p2: i32, p3: i32, p4: i32, p5: i32, p6: i32, p7: i32| {
-                        wrapped_func(name.clone(), engine_id, p1, p2, p3, p4, p5, p6, p7);
+                    let native_func = move |p1: i32, p2: i32, p3: i32, p4: i32, p5: i32, p6: i32, p7: i32| -> Result<(), Trap> {
+                        let res = wrapped_func(name.clone(), engine_id, p1, p2, p3, p4, p5, p6, p7);
+                        match res {
+                            0 => Ok(()),
+                            err_code => Err(Trap::i32_exit(err_code))
+                        }
                     };
                     register_res = unsafe { (*we.as_ptr()).add_host_fn_cb(name_cloned, native_func) };
                 },
                 9 => {
-                    let wrapped_func = move |fn_name: String, engine_id: i32, p1: i32, p2: i32, p3: i32, p4: i32, p5: i32, p6: i32, p7: i32, p8: i32| {
+                    let wrapped_func = move |fn_name: String, engine_id: i32, p1: i32, p2: i32, p3: i32, p4: i32, p5: i32, p6: i32, p7: i32, p8: i32| -> i32 {
                         let p = vec![engine_id, p1, p2, p3, p4, p5, p6, p7, p8];
-                        func(fn_name, p);
+                        func(fn_name, p)
                     };
                     let name_cloned = name.clone();
-                    let native_func = move |p1: i32, p2: i32, p3: i32, p4: i32, p5: i32, p6: i32, p7: i32, p8: i32| {
-                        wrapped_func(name.clone(), engine_id, p1, p2, p3, p4, p5, p6, p7, p8);
+                    let native_func = move |p1: i32, p2: i32, p3: i32, p4: i32, p5: i32, p6: i32, p7: i32, p8: i32| -> Result<(), Trap> {
+                        let res = wrapped_func(name.clone(), engine_id, p1, p2, p3, p4, p5, p6, p7, p8);
+                        match res {
+                            0 => Ok(()),
+                            err_code => Err(Trap::i32_exit(err_code))
+                        }
                     };
                     register_res = unsafe { (*we.as_ptr()).add_host_fn_cb(name_cloned, native_func) };
                 },
@@ -232,7 +264,7 @@ impl<'a> ProxyFactory {
         &mut self,
         engine_id: i32,
         name: String,
-        func: Box<dyn Fn(String, Vec<i64>) -> () + Send + Sync>,
+        func: Box<dyn Fn(String, Vec<i64>) -> i32 + Send + Sync>,
         func_params_count: i32,
     ) -> bool {
         let res: bool;
@@ -242,101 +274,137 @@ impl<'a> ProxyFactory {
             let register_res: Result<(), String>;
             match func_params_count {
                 1 => {
-                    let wrapped_func = move |fn_name: String, engine_id: i64| {
+                    let wrapped_func = move |fn_name: String, engine_id: i64| -> i32 {
                         let p = vec![engine_id];
-                        func(fn_name.clone(), p);
+                        func(fn_name.clone(), p)
                     };
                     let name_cloned = name.clone();
-                    let native_func = move || {
-                        wrapped_func(name.clone(), engine_id as i64);
+                    let native_func = move || -> Result<(), Trap> {
+                        let res = wrapped_func(name.clone(), engine_id as i64);
+                        match res {
+                            0 => Ok(()),
+                            err_code => Err(Trap::i32_exit(err_code))
+                        }
                     };
                     register_res = unsafe { (*we.as_ptr()).add_host_fn_cb(name_cloned, native_func) };
                 },
                 2 => {
-                    let wrapped_func = move |fn_name: String, engine_id: i64, p1: i64| {
+                    let wrapped_func = move |fn_name: String, engine_id: i64, p1: i64| -> i32 {
                         let p = vec![engine_id, p1];
-                        func(fn_name, p);
+                        func(fn_name, p)
                     };
                     let name_cloned = name.clone();
-                    let native_func = move |p1: i64| {
-                        wrapped_func(name.clone(), engine_id as i64, p1);
+                    let native_func = move |p1: i64| -> Result<(), Trap> {
+                        let res = wrapped_func(name.clone(), engine_id as i64, p1);
+                        match res {
+                            0 => Ok(()),
+                            err_code => Err(Trap::i32_exit(err_code))
+                        }
                     };
                     register_res = unsafe { (*we.as_ptr()).add_host_fn_cb(name_cloned, native_func) };
                 },
                 3 => {
-                    let wrapped_func = move |fn_name: String, engine_id: i64, p1: i64, p2: i64| {
+                    let wrapped_func = move |fn_name: String, engine_id: i64, p1: i64, p2: i64| -> i32 {
                         let p = vec![engine_id, p1, p2];
-                        func(fn_name, p);
+                        func(fn_name, p)
                     };
                     let name_cloned = name.clone();
-                    let native_func = move |p1: i64, p2: i64| {
-                        wrapped_func(name.clone(), engine_id as i64, p1, p2);
+                    let native_func = move |p1: i64, p2: i64| -> Result<(), Trap> {
+                        let res = wrapped_func(name.clone(), engine_id as i64, p1, p2);
+                        match res {
+                            0 => Ok(()),
+                            err_code => Err(Trap::i32_exit(err_code))
+                        }
                     };
                     register_res = unsafe { (*we.as_ptr()).add_host_fn_cb(name_cloned, native_func) };
                 },
                 4 => {
-                    let wrapped_func = move |fn_name: String, engine_id: i64, p1: i64, p2: i64, p3: i64| {
+                    let wrapped_func = move |fn_name: String, engine_id: i64, p1: i64, p2: i64, p3: i64| -> i32 {
                         let p = vec![engine_id, p1, p2, p3];
-                        func(fn_name, p);
+                        func(fn_name, p)
                     };
                     let name_cloned = name.clone();
-                    let native_func = move |p1: i64, p2: i64, p3: i64| {
-                        wrapped_func(name.clone(), engine_id as i64, p1, p2, p3);
+                    let native_func = move |p1: i64, p2: i64, p3: i64| -> Result<(), Trap> {
+                        let res = wrapped_func(name.clone(), engine_id as i64, p1, p2, p3);
+                        match res {
+                            0 => Ok(()),
+                            err_code => Err(Trap::i32_exit(err_code))
+                        }
                     };
                     register_res = unsafe { (*we.as_ptr()).add_host_fn_cb(name_cloned, native_func) };
                 },
                 5 => {
-                    let wrapped_func = move |fn_name: String, engine_id: i64, p1: i64, p2: i64, p3: i64, p4: i64| {
+                    let wrapped_func = move |fn_name: String, engine_id: i64, p1: i64, p2: i64, p3: i64, p4: i64| -> i32 {
                         let p = vec![engine_id, p1, p2, p3, p4];
-                        func(fn_name, p);
+                        func(fn_name, p)
                     };
                     let name_cloned = name.clone();
-                    let native_func = move |p1: i64, p2: i64, p3: i64, p4: i64| {
-                        wrapped_func(name.clone(), engine_id as i64, p1, p2, p3, p4);
+                    let native_func = move |p1: i64, p2: i64, p3: i64, p4: i64| -> Result<(), Trap> {
+                        let res = wrapped_func(name.clone(), engine_id as i64, p1, p2, p3, p4);
+                        match res {
+                            0 => Ok(()),
+                            err_code => Err(Trap::i32_exit(err_code))
+                        }
                     };
                     register_res = unsafe { (*we.as_ptr()).add_host_fn_cb(name_cloned, native_func) };
                 },
                 6 => {
-                    let wrapped_func = move |fn_name: String, engine_id: i64, p1: i64, p2: i64, p3: i64, p4: i64, p5: i64| {
+                    let wrapped_func = move |fn_name: String, engine_id: i64, p1: i64, p2: i64, p3: i64, p4: i64, p5: i64| -> i32 {
                         let p = vec![engine_id, p1, p2, p3, p4, p5];
-                        func(fn_name, p);
+                        func(fn_name, p)
                     };
                     let name_cloned = name.clone();
-                    let native_func = move |p1: i64, p2: i64, p3: i64, p4: i64, p5: i64| {
-                        wrapped_func(name.clone(), engine_id as i64, p1, p2, p3, p4, p5);
+                    let native_func = move |p1: i64, p2: i64, p3: i64, p4: i64, p5: i64| -> Result<(), Trap> {
+                        let res = wrapped_func(name.clone(), engine_id as i64, p1, p2, p3, p4, p5);
+                        match res {
+                            0 => Ok(()),
+                            err_code => Err(Trap::i32_exit(err_code))
+                        }
                     };
                     register_res = unsafe { (*we.as_ptr()).add_host_fn_cb(name_cloned, native_func) };
                 },
                 7 => {
-                    let wrapped_func = move |fn_name: String, engine_id: i64, p1: i64, p2: i64, p3: i64, p4: i64, p5: i64, p6: i64| {
+                    let wrapped_func = move |fn_name: String, engine_id: i64, p1: i64, p2: i64, p3: i64, p4: i64, p5: i64, p6: i64| -> i32 {
                         let p = vec![engine_id, p1, p2, p3, p4, p5, p6];
-                        func(fn_name, p);
+                        func(fn_name, p)
                     };
                     let name_cloned = name.clone();
-                    let native_func = move |p1: i64, p2: i64, p3: i64, p4: i64, p5: i64, p6: i64| {
-                        wrapped_func(name.clone(), engine_id as i64, p1, p2, p3, p4, p5, p6);
+                    let native_func = move |p1: i64, p2: i64, p3: i64, p4: i64, p5: i64, p6: i64| -> Result<(), Trap> {
+                        let res = wrapped_func(name.clone(), engine_id as i64, p1, p2, p3, p4, p5, p6);
+                        match res {
+                            0 => Ok(()),
+                            err_code => Err(Trap::i32_exit(err_code))
+                        }
                     };
                     register_res = unsafe { (*we.as_ptr()).add_host_fn_cb(name_cloned, native_func) };
                 },
                 8 => {
-                    let wrapped_func = move |fn_name: String, engine_id: i64, p1: i64, p2: i64, p3: i64, p4: i64, p5: i64, p6: i64, p7: i64| {
+                    let wrapped_func = move |fn_name: String, engine_id: i64, p1: i64, p2: i64, p3: i64, p4: i64, p5: i64, p6: i64, p7: i64| -> i32 {
                         let p = vec![engine_id, p1, p2, p3, p4, p5, p6, p7];
-                        func(fn_name, p);
+                        func(fn_name, p)
                     };
                     let name_cloned = name.clone();
-                    let native_func = move |p1: i64, p2: i64, p3: i64, p4: i64, p5: i64, p6: i64, p7: i64| {
-                        wrapped_func(name.clone(), engine_id as i64, p1, p2, p3, p4, p5, p6, p7);
+                    let native_func = move |p1: i64, p2: i64, p3: i64, p4: i64, p5: i64, p6: i64, p7: i64| -> Result<(), Trap> {
+                        let res = wrapped_func(name.clone(), engine_id as i64, p1, p2, p3, p4, p5, p6, p7);
+                        match res {
+                            0 => Ok(()),
+                            err_code => Err(Trap::i32_exit(err_code))
+                        }
                     };
                     register_res = unsafe { (*we.as_ptr()).add_host_fn_cb(name_cloned, native_func) };
                 },
                 9 => {
-                    let wrapped_func = move |fn_name: String, engine_id: i64, p1: i64, p2: i64, p3: i64, p4: i64, p5: i64, p6: i64, p7: i64, p8: i64| {
+                    let wrapped_func = move |fn_name: String, engine_id: i64, p1: i64, p2: i64, p3: i64, p4: i64, p5: i64, p6: i64, p7: i64, p8: i64| -> i32 {
                         let p = vec![engine_id, p1, p2, p3, p4, p5, p6, p7, p8];
-                        func(fn_name, p);
+                        func(fn_name, p)
                     };
                     let name_cloned = name.clone();
-                    let native_func = move |p1: i64, p2: i64, p3: i64, p4: i64, p5: i64, p6: i64, p7: i64, p8: i64| {
-                        wrapped_func(name.clone(), engine_id as i64, p1, p2, p3, p4, p5, p6, p7, p8);
+                    let native_func = move |p1: i64, p2: i64, p3: i64, p4: i64, p5: i64, p6: i64, p7: i64, p8: i64| -> Result<(), Trap> {
+                        let res = wrapped_func(name.clone(), engine_id as i64, p1, p2, p3, p4, p5, p6, p7, p8);
+                        match res {
+                            0 => Ok(()),
+                            err_code => Err(Trap::i32_exit(err_code))
+                        }
                     };
                     register_res = unsafe { (*we.as_ptr()).add_host_fn_cb(name_cloned, native_func) };
                 },

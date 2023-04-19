@@ -13,12 +13,12 @@ package zkwasm_wasmi
 #include <stdlib.h>
 
 typedef void (*callback_fn_json_trace)(int32_t engine_id, char* json_trace, int32_t json_trace_len);
-typedef void (*callback_fn_i32_t)(int32_t engine_id, char* fn_name, int32_t fn_name_len, int32_t* data, int32_t data_len);
-typedef void (*callback_fn_i64_t)(int32_t engine_id, char* fn_name, int32_t fn_name_len, int64_t* data, int32_t data_len);
+typedef int32_t (*callback_fn_i32_t)(int32_t engine_id, char* fn_name, int32_t fn_name_len, int32_t* data, int32_t data_len);
+typedef int32_t (*callback_fn_i64_t)(int32_t engine_id, char* fn_name, int32_t fn_name_len, int64_t* data, int32_t data_len);
 
 void callbackHandle_cgo_on_item_added_to_logs(int32_t engine_id, char* json_trace, int32_t json_trace_len);
-void callbackHandle_cgo_i32(int32_t engine_id, char* fn_name, int32_t fn_name_len, int32_t* data, int32_t data_len);
-void callbackHandle_cgo_i64(int32_t engine_id, char* fn_name, int32_t fn_name_len, int64_t* data, int32_t data_len);
+int32_t callbackHandle_cgo_i32(int32_t engine_id, char* fn_name, int32_t fn_name_len, int32_t* data, int32_t data_len);
+int32_t callbackHandle_cgo_i64(int32_t engine_id, char* fn_name, int32_t fn_name_len, int64_t* data, int32_t data_len);
 
 #include "packaged/include/wasmi.h"
 */
@@ -26,14 +26,39 @@ import "C"
 
 import (
 	_ "embed"
+	"errors"
 	"log"
 	"reflect"
+	"strconv"
+	"strings"
 	"sync"
 	"unsafe"
 
 	_ "github.com/wasm0/zkwasm-wasmi/packaged/include"
 	_ "github.com/wasm0/zkwasm-wasmi/packaged/lib"
 )
+
+type ComputeTraceErrorCode int32
+
+const (
+	ComputeTraceErrorCodeOk ComputeTraceErrorCode = iota
+	ComputeTraceErrorCodeOutOfGas
+	ComputeTraceErrorCodeUnknown
+)
+
+var (
+	WasmiErrorOutOfGas = errors.New("out of gas")
+	WasmiErrorUnknown  = errors.New("unknown")
+)
+
+func ComputeTraceErrorFromInt32(code int32) error {
+	c := ComputeTraceErrorCode(code)
+	switch c {
+	case ComputeTraceErrorCodeOutOfGas:
+		return WasmiErrorOutOfGas
+	}
+	return WasmiErrorUnknown
+}
 
 func byteArrayToRawPointer(input []byte) (*C.uchar, C.size_t) {
 	var argv = make([]C.uchar, len(input))
@@ -122,6 +147,17 @@ func (we *WasmEngine) SetWasmBinary(wasmBinary []byte) {
 func (we *WasmEngine) ComputeTrace() (traceJson []byte, err error) {
 	res := C.compute_trace(C.int(we.id))
 	traceJson = C.GoBytes(unsafe.Pointer(res.ptr), C.int(res.len))
+	if len(traceJson) < 15 {
+		traceJsonStr := string(traceJson)
+		if strings.HasPrefix(traceJsonStr, "error:") {
+			errorCodeStr := strings.TrimPrefix(traceJsonStr, "error:")
+			errorCode, err := strconv.Atoi(errorCodeStr)
+			if err != nil {
+				return nil, err
+			}
+			return nil, ComputeTraceErrorFromInt32(int32(errorCode))
+		}
+	}
 	return traceJson, nil
 }
 
@@ -238,7 +274,7 @@ func callbackHandle_cgo_on_item_added_to_logs(engine_id C.int32_t, json_trace *C
 }
 
 //export callbackHandle_cgo_i32
-func callbackHandle_cgo_i32(engine_id C.int32_t, fn_name *C.char, fn_name_len C.int32_t, data *C.int32_t, data_len C.int32_t) {
+func callbackHandle_cgo_i32(engine_id C.int32_t, fn_name *C.char, fn_name_len C.int32_t, data *C.int32_t, data_len C.int32_t) C.int32_t {
 	engineId := int32(engine_id)
 	fnName := cCharPtrToString(fn_name)
 	args := cArrayToSliceI32(data, data_len)
@@ -247,15 +283,17 @@ func callbackHandle_cgo_i32(engine_id C.int32_t, fn_name *C.char, fn_name_len C.
 		log.Panicf("wasm engine id %d doesn't exist", engineId)
 	}
 	execContext := wasmEngine.getRegistered(fnName)
-	if cb, ok := execContext.(func(params []int32)); ok {
-		cb(args[1:]) // start from index 1 to get rid of engine id value
+	if cb, ok := execContext.(func(params []int32) int32); ok {
+		res := cb(args[1:]) // start from index 1 to get rid of engine id value
+		return C.int32_t(res)
 	} else {
-		log.Panicf("failed to cast fn '%s' (func(params []int32))\n", fnName)
+		log.Panicf("failed to cast fn '%s' (func(params []int32) int32)\n", fnName)
 	}
+	return C.int32_t(0)
 }
 
 //export callbackHandle_cgo_i64
-func callbackHandle_cgo_i64(engine_id C.int32_t, fn_name *C.char, fn_name_len C.int32_t, data *C.int64_t, data_len C.int32_t) {
+func callbackHandle_cgo_i64(engine_id C.int32_t, fn_name *C.char, fn_name_len C.int32_t, data *C.int64_t, data_len C.int32_t) C.int32_t {
 	engineId := int32(engine_id)
 	fnName := cArrayToString(fn_name, fn_name_len)
 	args := cArrayToSliceI64(data, data_len)
@@ -264,9 +302,11 @@ func callbackHandle_cgo_i64(engine_id C.int32_t, fn_name *C.char, fn_name_len C.
 		log.Panicf("wasm engine id %d doesn't exist", engineId)
 	}
 	execContext := wasmEngine.getRegistered(fnName)
-	if cb, ok := execContext.(func(params []int64)); ok {
-		cb(args[1:])
+	if cb, ok := execContext.(func(params []int64) int32); ok {
+		res := cb(args[1:])
+		return C.int32_t(res)
 	} else {
-		log.Panicf("failed to cast fn '%s' to (func(params []int64))\n", fnName)
+		log.Panicf("failed to cast fn '%s' to (func(params []int64) int32)\n", fnName)
 	}
+	return C.int32_t(0)
 }
