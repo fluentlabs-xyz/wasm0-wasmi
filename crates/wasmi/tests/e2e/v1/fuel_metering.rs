@@ -93,3 +93,26 @@ fn metered_i32_add() {
     assert_success(func.call(&mut store, (1, 2)));
     assert_eq!(store.fuel_consumed(), Some(5));
 }
+
+#[test]
+fn test_global_data() {
+    let wasm = wat2wasm(
+        r#"
+(module
+  (type (;0;) (func))
+  (func (;1;) (type 0)
+    i32.const 0
+    drop)
+  (memory (;0;) 1)
+  (export "test" (func 0))
+  (export "memory" (memory 0))
+  (data (;0;) (i32.const 0) "\aa\bb\cc\dd\ee\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00"))
+    "#,
+    );
+    let (mut store, func) = default_test_setup(&wasm);
+    let func = func.typed::<(), ()>(&store).unwrap();
+    // No fuel -> no success.
+    assert_out_of_fuel(func.call(&mut store, ()));
+    assert_eq!(store.fuel_consumed(), Some(0));
+    // Now add too little fuel for a start, so still no success.
+}

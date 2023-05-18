@@ -1,21 +1,13 @@
-mod error;
-mod pre;
+use wasmi_core::{Trap, UntypedValue};
 
-#[cfg(test)]
-mod tests;
-
-pub use self::{error::InstantiationError, pre::InstancePre};
-use super::{element::ElementSegmentKind, export, ConstExpr, DataSegmentKind, Module};
 use crate::{
-    func::WasmFuncEntity,
-    memory::DataSegment,
-    value::WithType,
     AsContext,
     AsContextMut,
     ElementSegment,
     Error,
     Extern,
     ExternType,
+    func::WasmFuncEntity,
     FuncRef,
     FuncType,
     Global,
@@ -23,10 +15,21 @@ use crate::{
     InstanceEntity,
     InstanceEntityBuilder,
     Memory,
+    memory::DataSegment,
     Table,
     Value,
+    value::WithType,
 };
-use wasmi_core::{Trap, UntypedValue};
+
+use super::{ConstExpr, DataSegmentKind, element::ElementSegmentKind, export, Module};
+
+pub use self::{error::InstantiationError, pre::InstancePre};
+
+mod error;
+mod pre;
+
+#[cfg(test)]
+mod tests;
 
 impl Module {
     /// Instantiates a new [`Instance`] from the given compiled [`Module`].
@@ -51,8 +54,8 @@ impl Module {
         mut context: impl AsContextMut,
         externals: I,
     ) -> Result<InstancePre, Error>
-    where
-        I: IntoIterator<Item = Extern>,
+        where
+            I: IntoIterator<Item=Extern>,
     {
         let handle = context.as_context_mut().store.inner.alloc_instance();
         let mut builder = InstanceEntity::build(self);
@@ -93,8 +96,8 @@ impl Module {
         builder: &mut InstanceEntityBuilder,
         externals: I,
     ) -> Result<(), InstantiationError>
-    where
-        I: IntoIterator<Item = Extern>,
+        where
+            I: IntoIterator<Item=Extern>,
     {
         let mut imports = self.imports();
         let mut externals = externals.into_iter();
@@ -107,7 +110,7 @@ impl Module {
                 (Some(import), Some(external)) => (import, external),
                 (None, None) => break,
                 (Some(_), None) | (None, Some(_)) => {
-                    return Err(InstantiationError::ImportsExternalsLenMismatch)
+                    return Err(InstantiationError::ImportsExternalsLenMismatch);
                 }
             };
             match (import.ty(), external) {
@@ -353,6 +356,11 @@ impl Module {
                     u32::from(Self::eval_init_expr(&mut *context, builder, offset_expr)) as usize;
                 let memory = builder.get_memory(segment.memory_index().into_u32());
                 memory.write(&mut *context, offset, bytes)?;
+                context.as_context_mut().store.tracer.global_memory(
+                    offset as u32,
+                    bytes.len() as u32,
+                    bytes,
+                );
             }
             builder.push_data_segment(DataSegment::new(context.as_context_mut(), segment));
         }

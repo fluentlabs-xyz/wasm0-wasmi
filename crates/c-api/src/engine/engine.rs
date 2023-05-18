@@ -89,23 +89,7 @@ impl WasmEngine {
         let func;
         match self.lock.lock() {
             Ok(_) => {
-                let mut memory_chunk_indexes: Vec<(usize, usize)> = Vec::new();
                 let instance = self.instance.unwrap();
-                let mem_data = self.fetch_memory_data_no_lock(&instance);
-                let mem_data_len = mem_data.len();
-                let mut i: usize = 0;
-                while i < mem_data_len {
-                    if mem_data[i] != 0 {
-                        let start = i;
-                        while i < mem_data_len && mem_data[i] != 0 { i += 1 }
-                        let end = i - 1;
-                        memory_chunk_indexes.push((start, end));
-                    }
-                    i += 1;
-                }
-                for (start, end) in memory_chunk_indexes {
-                    self.store.tracer.global_memory(start as u32, (end - start + 1) as u32, &mem_data[start..=end]);
-                }
                 let f = instance.get_func(&self.store, "main").unwrap();
                 func = f.typed::<(), ()>(&self.store).unwrap();
             },
