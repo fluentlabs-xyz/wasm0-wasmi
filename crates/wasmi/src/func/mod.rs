@@ -1,11 +1,19 @@
-mod caller;
-mod error;
-mod func_type;
-mod funcref;
-mod into_func;
-mod typed_func;
+use alloc::{boxed::Box, sync::Arc};
+use core::{fmt, fmt::Debug, num::NonZeroU32};
 
-pub(crate) use self::typed_func::CallResultsTuple;
+use wasmi_arena::ArenaIndex;
+
+use crate::{core::Trap, Engine, engine::ResumableCall, Error, Value};
+
+use super::{
+    AsContext,
+    AsContextMut,
+    engine::{DedupFuncType, FuncBody, FuncFinished, FuncParams},
+    Instance,
+    StoreContext,
+    Stored,
+};
+
 pub use self::{
     caller::Caller,
     error::FuncError,
@@ -14,18 +22,14 @@ pub use self::{
     into_func::{IntoFunc, WasmRet, WasmType, WasmTypeList},
     typed_func::{TypedFunc, WasmParams, WasmResults},
 };
-use super::{
-    engine::{DedupFuncType, FuncBody, FuncFinished, FuncParams},
-    AsContext,
-    AsContextMut,
-    Instance,
-    StoreContext,
-    Stored,
-};
-use crate::{core::Trap, engine::ResumableCall, Engine, Error, Value};
-use alloc::{boxed::Box, sync::Arc};
-use core::{fmt, fmt::Debug, num::NonZeroU32};
-use wasmi_arena::ArenaIndex;
+pub(crate) use self::typed_func::CallResultsTuple;
+
+mod caller;
+mod error;
+mod func_type;
+mod funcref;
+mod into_func;
+mod typed_func;
 
 /// A raw index to a function entity.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -100,18 +104,27 @@ impl From<HostFuncEntity> for FuncEntity {
 }
 
 /// A host function reference and its function type.
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone)]
 pub struct HostFuncEntity {
     /// The function type of the host function.
     ty: DedupFuncType,
     /// A reference to the trampoline of the host function.
     func: Trampoline,
+    /// Number of params
+    num_params: u64,
+    /// Function name
+    name: String,
 }
 
 impl HostFuncEntity {
     /// Creates a new [`HostFuncEntity`].
     pub fn new(ty: DedupFuncType, func: Trampoline) -> Self {
-        Self { ty, func }
+        Self { ty, func, num_params: 0, name: String::new() }
+    }
+
+    /// Creates a new [`HostFuncEntity`].
+    pub fn new_with_meta(ty: DedupFuncType, func: Trampoline, num_params: u64, name: String) -> Self {
+        Self { ty, func, num_params, name }
     }
 
     /// Returns the signature of the host function.
@@ -122,6 +135,15 @@ impl HostFuncEntity {
     /// Returns the [`Trampoline`] of the host function.
     pub fn trampoline(&self) -> &Trampoline {
         &self.func
+    }
+
+    pub fn num_params(&self) -> u64 {
+        self.num_params
+    }
+
+    /// Returns function name
+    pub fn name(&self) -> &String {
+        &self.name
     }
 }
 
@@ -244,7 +266,7 @@ impl<T> HostFuncTrampolineEntity<T> {
 }
 
 type TrampolineFn<T> =
-    dyn Fn(Caller<T>, FuncParams) -> Result<FuncFinished, Trap> + Send + Sync + 'static;
+dyn Fn(Caller<T>, FuncParams) -> Result<FuncFinished, Trap> + Send + Sync + 'static;
 
 pub struct TrampolineEntity<T> {
     closure: Arc<TrampolineFn<T>>,
@@ -259,8 +281,8 @@ impl<T> Debug for TrampolineEntity<T> {
 impl<T> TrampolineEntity<T> {
     /// Creates a new [`TrampolineEntity`] from the given host function.
     pub fn new<F>(trampoline: F) -> Self
-    where
-        F: Fn(Caller<T>, FuncParams) -> Result<FuncFinished, Trap> + Send + Sync + 'static,
+        where
+            F: Fn(Caller<T>, FuncParams) -> Result<FuncFinished, Trap> + Send + Sync + 'static,
     {
         Self {
             closure: Arc::new(trampoline),
@@ -272,7 +294,7 @@ impl<T> TrampolineEntity<T> {
     /// The result is written back into the `outputs` buffer.
     pub fn call(
         &self,
-        mut ctx: impl AsContextMut<UserState = T>,
+        mut ctx: impl AsContextMut<UserState=T>,
         instance: Option<&Instance>,
         params: FuncParams,
     ) -> Result<FuncFinished, Trap> {
@@ -329,7 +351,7 @@ impl Func {
     ///   created using this constructor have runtime overhead for every invokation that
     ///   can be avoided by using [`Func::wrap`].
     pub fn new<T>(
-        mut ctx: impl AsContextMut<UserState = T>,
+        mut ctx: impl AsContextMut<UserState=T>,
         ty: FuncType,
         func: impl Fn(Caller<'_, T>, &[Value], &mut [Value]) -> Result<(), Trap> + Send + Sync + 'static,
     ) -> Self {
@@ -346,8 +368,17 @@ impl Func {
 
     /// Creates a new host function from the given closure.
     pub fn wrap<T, Params, Results>(
-        mut ctx: impl AsContextMut<UserState = T>,
+        mut ctx: impl AsContextMut<UserState=T>,
         func: impl IntoFunc<T, Params, Results>,
+    ) -> Self {
+        Self::wrap_with_meta(ctx, func, String::new())
+    }
+
+    /// Creates a new host function from the given closure.
+    pub fn wrap_with_meta<T, Params, Results>(
+        mut ctx: impl AsContextMut<UserState=T>,
+        func: impl IntoFunc<T, Params, Results>,
+        name: String,
     ) -> Self {
         let engine = ctx.as_context().store.engine();
         let host_func = HostFuncTrampolineEntity::wrap(engine, func);
@@ -357,7 +388,7 @@ impl Func {
         ctx.as_context_mut()
             .store
             .inner
-            .alloc_func(HostFuncEntity::new(ty_dedup, func).into())
+            .alloc_func(HostFuncEntity::new_with_meta(ty_dedup, func, 0, name).into())
     }
 
     /// Returns the signature of the function.
@@ -391,7 +422,7 @@ impl Func {
     ///   outputs required by the function signature of `self`.
     pub fn call<T>(
         &self,
-        mut ctx: impl AsContextMut<UserState = T>,
+        mut ctx: impl AsContextMut<UserState=T>,
         inputs: &[Value],
         outputs: &mut [Value],
     ) -> Result<(), Error> {
@@ -431,7 +462,7 @@ impl Func {
     ///   outputs required by the function signature of `self`.
     pub fn call_resumable<T>(
         &self,
-        mut ctx: impl AsContextMut<UserState = T>,
+        mut ctx: impl AsContextMut<UserState=T>,
         inputs: &[Value],
         outputs: &mut [Value],
     ) -> Result<ResumableCall, Error> {
@@ -493,9 +524,9 @@ impl Func {
         &self,
         ctx: impl AsContext,
     ) -> Result<TypedFunc<Params, Results>, Error>
-    where
-        Params: WasmParams,
-        Results: WasmResults,
+        where
+            Params: WasmParams,
+            Results: WasmResults,
     {
         TypedFunc::new(ctx, *self)
     }

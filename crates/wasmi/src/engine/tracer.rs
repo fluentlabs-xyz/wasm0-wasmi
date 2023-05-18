@@ -65,6 +65,7 @@ pub struct FunctionMeta {
     pub fn_index: u32,
     pub max_stack_height: u32,
     pub num_locals: u32,
+    pub fn_name: String,
 }
 
 impl Serialize for FunctionMeta {
@@ -73,6 +74,7 @@ impl Serialize for FunctionMeta {
         s.serialize_field("fn_index", &self.fn_index)?;
         s.serialize_field("max_stack_height", &self.max_stack_height)?;
         s.serialize_field("num_locals", &self.num_locals)?;
+        s.serialize_field("fn_name", &self.fn_name)?;
         s.end()
     }
 }
@@ -156,11 +158,13 @@ impl Tracer {
         fn_index: usize,
         max_stack_height: usize,
         num_locals: usize,
+        fn_name: String,
     ) {
         self.fns_meta.push(FunctionMeta {
             fn_index: fn_index as u32,
             max_stack_height: max_stack_height as u32,
             num_locals: num_locals as u32,
+            fn_name,
         })
     }
 

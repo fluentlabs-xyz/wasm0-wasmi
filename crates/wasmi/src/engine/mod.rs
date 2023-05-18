@@ -17,6 +17,7 @@ use crate::{
     StoreContextMut,
 };
 use crate::engine::bytecode::InstrMeta;
+use crate::func::HostFuncEntity;
 
 pub use self::{
     bytecode::DropKeep,
@@ -600,21 +601,28 @@ impl<'engine> EngineExecutor<'engine> {
     {
         self.stack.reset();
         self.stack.values.extend(params.call_params());
+        let fn_index = ctx.as_context().store.inner.unwrap_stored(func.as_inner()).into_usize();
         match ctx.as_context().store.inner.resolve_func(func) {
             FuncEntity::Wasm(wasm_func) => {
                 self.stack
                     .prepare_wasm_call(wasm_func, &self.res.code_map)?;
-                let fn_index = ctx.as_context().store.inner.unwrap_stored(func.as_inner()).into_usize();
                 let header = self.res.code_map.header(wasm_func.func_body());
                 ctx.as_context_mut().store.tracer.function_call(
                     fn_index,
                     header.max_stack_height(),
                     header.len_locals(),
+                    String::new(),
                 );
                 self.execute_wasm_func(ctx.as_context_mut())?;
             }
             FuncEntity::Host(host_func) => {
-                let host_func = *host_func;
+                let host_func = host_func.clone();
+                ctx.as_context_mut().store.tracer.function_call(
+                    fn_index,
+                    0,
+                    host_func.num_params() as usize,
+                    host_func.name().clone(),
+                );
                 self.stack.call_host_as_root(
                     ctx.as_context_mut(),
                     host_func,
@@ -699,7 +707,7 @@ impl<'engine> EngineExecutor<'engine> {
                     let func = host_func;
                     let host_func = match ctx.as_context().store.inner.resolve_func(func) {
                         FuncEntity::Wasm(_) => unreachable!("`func` must be a host function"),
-                        FuncEntity::Host(host_func) => *host_func,
+                        FuncEntity::Host(host_func) => host_func.clone(),
                     };
                     let result = self.stack.call_host_impl(
                         ctx.as_context_mut(),

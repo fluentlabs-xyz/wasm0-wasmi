@@ -176,7 +176,7 @@ impl WasmEngine {
                 if self.host_fns.contains_key(name.as_str()) {
                     return Err(format!("there is already fn with name: {}", &name));
                 };
-                let host_fn = Func::wrap(&mut self.store, func);
+                let host_fn = Func::wrap_with_meta(&mut self.store, func, name.clone());
                 self.host_fns.insert(name, host_fn);
             }
             Err(_) => panic!("lock failed")
