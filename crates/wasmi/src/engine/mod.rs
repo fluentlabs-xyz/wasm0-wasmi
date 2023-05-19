@@ -608,7 +608,7 @@ impl<'engine> EngineExecutor<'engine> {
                     .prepare_wasm_call(wasm_func, &self.res.code_map)?;
                 let header = self.res.code_map.header(wasm_func.func_body());
                 ctx.as_context_mut().store.tracer.function_call(
-                    fn_index,
+                    fn_index as u32,
                     header.max_stack_height(),
                     header.len_locals(),
                     String::new(),
@@ -618,7 +618,7 @@ impl<'engine> EngineExecutor<'engine> {
             FuncEntity::Host(host_func) => {
                 let host_func = host_func.clone();
                 ctx.as_context_mut().store.tracer.function_call(
-                    fn_index,
+                    fn_index as u32,
                     0,
                     host_func.num_params() as usize,
                     host_func.name().clone(),

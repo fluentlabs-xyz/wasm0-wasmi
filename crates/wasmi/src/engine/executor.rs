@@ -570,7 +570,7 @@ impl<'ctx, 'engine> Executor<'ctx, 'engine> {
     /// the function call so that the stack and execution state is synchronized
     /// with the outer structures.
     #[inline(always)]
-    fn call_func(&mut self, func: &Func, kind: CallKind) -> Result<CallOutcome, TrapCode> {
+    fn call_func(&mut self, func: &Func, kind: CallKind, func_index: u32) -> Result<CallOutcome, TrapCode> {
         self.next_instr();
         self.sync_stack_ptr();
         if matches!(kind, CallKind::Nested) {
@@ -580,6 +580,12 @@ impl<'ctx, 'engine> Executor<'ctx, 'engine> {
         match self.ctx.resolve_func(func) {
             FuncEntity::Wasm(wasm_func) => {
                 let header = self.code_map.header(wasm_func.func_body());
+                self.tracer.function_call(
+                    func_index,
+                    header.max_stack_height(),
+                    header.len_locals(),
+                    String::new(),
+                );
                 self.value_stack.prepare_wasm_call(header)?;
                 self.sp = self.value_stack.stack_ptr();
                 self.cache.update_instance(wasm_func.instance());
@@ -738,7 +744,7 @@ impl<'ctx, 'engine> Executor<'ctx, 'engine> {
         kind: CallKind,
     ) -> Result<CallOutcome, TrapCode> {
         let callee = self.cache.get_func(self.ctx, func_index);
-        self.call_func(&callee, kind)
+        self.call_func(&callee, kind, func_index.into_inner())
     }
 
     /// Executes a `call_indirect` or `return_call_indirect` instruction.
@@ -769,7 +775,7 @@ impl<'ctx, 'engine> Executor<'ctx, 'engine> {
         if actual_signature != expected_signature {
             return Err(TrapCode::BadSignature).map_err(Into::into);
         }
-        self.call_func(func, kind)
+        self.call_func(func, kind, func_index)
     }
 }
 
@@ -900,7 +906,7 @@ impl<'ctx, 'engine> Executor<'ctx, 'engine> {
     #[inline(always)]
     fn visit_call(&mut self, func_index: FuncIdx) -> Result<CallOutcome, TrapCode> {
         let callee = self.cache.get_func(self.ctx, func_index);
-        self.call_func(&callee, CallKind::Nested)
+        self.call_func(&callee, CallKind::Nested, func_index.into_inner())
     }
 
     #[inline(always)]

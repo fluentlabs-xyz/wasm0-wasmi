@@ -1,14 +1,15 @@
 use core::fmt::{Debug, Formatter};
 use std::cell::RefCell;
+use std::collections::BTreeMap;
 
 use serde::{Serialize, Serializer};
 use serde::ser::SerializeStruct;
 
 use wasmi_core::UntypedValue;
 
+use crate::{Extern, GlobalType};
 use crate::engine::bytecode::{InstrMeta, Instruction};
 use crate::engine::opcode::OpCode;
-use crate::GlobalType;
 use crate::module::ConstExpr;
 
 #[derive(Debug, Clone)]
@@ -103,7 +104,8 @@ pub struct Tracer {
     cb_on_after_item_added_to_logs: Option<Box<dyn Fn(OpCodeState)>>,
     memory_changes: RefCell<Vec<MemoryState>>,
     fns_meta: Vec<FunctionMeta>,
-    global_variables: Vec<GlobalVariable>
+    global_variables: Vec<GlobalVariable>,
+    extern_names: BTreeMap<u32, String>,
 }
 
 impl Debug for Tracer {
@@ -135,6 +137,17 @@ impl Tracer {
             len,
             data: Vec::from(memory),
         });
+    }
+
+    pub fn register_extern(&mut self, ex: Extern, name: &Box<str>, entity_index: u32) {
+        match ex {
+            Extern::Global(_) => {}
+            Extern::Table(_) => {}
+            Extern::Memory(_) => {}
+            Extern::Func(_) => {
+                self.extern_names.insert(entity_index, name.to_string());
+            }
+        }
     }
 
     pub fn pre_opcode_state(
@@ -173,16 +186,19 @@ impl Tracer {
 
     pub fn function_call(
         &mut self,
-        fn_index: usize,
+        fn_index: u32,
         max_stack_height: usize,
         num_locals: usize,
         fn_name: String,
     ) {
+        let resolved_name = self.extern_names
+            .get(&fn_index)
+            .unwrap_or(&fn_name);
         self.fns_meta.push(FunctionMeta {
-            fn_index: fn_index as u32,
+            fn_index,
             max_stack_height: max_stack_height as u32,
             num_locals: num_locals as u32,
-            fn_name,
+            fn_name: resolved_name.clone(),
         })
     }
 

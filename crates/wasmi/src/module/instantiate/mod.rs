@@ -65,7 +65,7 @@ impl Module {
         self.extract_tables(&mut context, &mut builder)?;
         self.extract_memories(&mut context, &mut builder);
         self.extract_globals(&mut context, &mut builder);
-        self.extract_exports(&mut builder);
+        self.extract_exports(&mut context, &mut builder);
         self.extract_start_fn(&mut builder);
 
         self.initialize_table_elements(&mut context, &mut builder)?;
@@ -264,30 +264,31 @@ impl Module {
     }
 
     /// Extracts the Wasm exports from the module and registers them into the [`Instance`].
-    fn extract_exports(&self, builder: &mut InstanceEntityBuilder) {
+    fn extract_exports(&self, context: &mut impl AsContextMut, builder: &mut InstanceEntityBuilder) {
         for (field, idx) in &self.exports {
-            let external = match idx {
+            let (external, entity_index) = match idx {
                 export::ExternIdx::Func(func_index) => {
                     let func_index = func_index.into_u32();
                     let func = builder.get_func(func_index);
-                    Extern::Func(func)
+                    (Extern::Func(func), func_index)
                 }
                 export::ExternIdx::Table(table_index) => {
                     let table_index = table_index.into_u32();
                     let table = builder.get_table(table_index);
-                    Extern::Table(table)
+                    (Extern::Table(table), table_index)
                 }
                 export::ExternIdx::Memory(memory_index) => {
                     let memory_index = memory_index.into_u32();
                     let memory = builder.get_memory(memory_index);
-                    Extern::Memory(memory)
+                    (Extern::Memory(memory), memory_index)
                 }
                 export::ExternIdx::Global(global_index) => {
                     let global_index = global_index.into_u32();
                     let global = builder.get_global(global_index);
-                    Extern::Global(global)
+                    (Extern::Global(global), global_index)
                 }
             };
+            context.as_context_mut().store.tracer.register_extern(external, field, entity_index);
             builder.push_export(field, external);
         }
     }

@@ -77,6 +77,52 @@ fn simple_i32_add() {
 }
 
 #[test]
+fn test_global_data() {
+    let wasm = wat2wasm(
+        r#"
+(module
+  (type (;0;) (func))
+  (func (;1;) (type 0)
+    i32.const 0
+    drop)
+  (memory (;0;) 1)
+  (export "test" (func 0))
+  (export "memory" (memory 0))
+  (data (;0;) (i32.const 0) "\aa\bb\cc\dd\ee\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00"))
+    "#,
+    );
+    let (mut store, func) = default_test_setup(&wasm);
+    let func = func.typed::<(), ()>(&store).unwrap();
+    assert_success(func.call(&mut store, ()));
+    println!("{:?}", store.tracer);
+    let json_body = store.tracer.to_json();
+    println!("{:?}", json_body);
+}
+
+#[test]
+fn test_global_variable() {
+    let wasm = wat2wasm(
+        r#"
+(module
+  (type (;0;) (func))
+  (func (;0;) (type 0)
+    global.get 0
+    drop)
+  (memory (;0;) 1)
+  (global (;0;) (mut i32) (i32.const 127))
+  (export "test" (func 0))
+  (export "memory" (memory 0)))
+    "#,
+    );
+    let (mut store, func) = default_test_setup(&wasm);
+    let func = func.typed::<(), ()>(&store).unwrap();
+    assert_success(func.call(&mut store, ()));
+    println!("{:?}", store.tracer);
+    let json_body = store.tracer.to_json();
+    println!("{:?}", json_body);
+}
+
+#[test]
 fn function_with_local_variables() {
     let wasm = wat2wasm(
         r#"
@@ -98,13 +144,13 @@ fn function_with_local_variables() {
     call 0
     drop)
   (memory (;0;) 1)
-  (export "main" (func 1))
+  (export "test" (func 1))
   (export "memory" (memory 0)))
     "#,
     );
     let (mut store, func) = default_test_setup(&wasm);
-    let func = func.typed::<(i32, i32), i32>(&store).unwrap();
-    assert_success(func.call(&mut store, (1, 2)));
+    let func = func.typed::<(), ()>(&store).unwrap();
+    assert_success(func.call(&mut store, ()));
     println!("{:?}", store.tracer);
     let json_body = store.tracer.to_json();
     println!("{:?}", json_body);
