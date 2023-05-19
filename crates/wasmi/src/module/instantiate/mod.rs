@@ -230,6 +230,7 @@ impl Module {
         context: &mut impl AsContextMut,
         builder: &mut InstanceEntityBuilder,
     ) {
+        let mut global_index: u32 = 0;
         for (global_type, global_init) in self.internal_globals() {
             let value_type = global_type.content();
             let init_value = Self::eval_init_expr(context.as_context_mut(), builder, global_init);
@@ -239,6 +240,11 @@ impl Module {
                 init_value.with_type(value_type),
                 mutability,
             );
+            context.as_context_mut().store.tracer.global_variable(
+                init_value,
+                global_index,
+            );
+            global_index += 1;
             builder.push_global(global);
         }
     }

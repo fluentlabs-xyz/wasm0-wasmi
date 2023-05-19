@@ -8,6 +8,8 @@ use wasmi_core::UntypedValue;
 
 use crate::engine::bytecode::{InstrMeta, Instruction};
 use crate::engine::opcode::OpCode;
+use crate::GlobalType;
+use crate::module::ConstExpr;
 
 #[derive(Debug, Clone)]
 pub struct MemoryState {
@@ -70,7 +72,7 @@ pub struct FunctionMeta {
 
 impl Serialize for FunctionMeta {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
-        let mut s = serializer.serialize_struct("MemoryState", 3)?;
+        let mut s = serializer.serialize_struct("FunctionMeta", 3)?;
         s.serialize_field("fn_index", &self.fn_index)?;
         s.serialize_field("max_stack_height", &self.max_stack_height)?;
         s.serialize_field("num_locals", &self.num_locals)?;
@@ -79,6 +81,20 @@ impl Serialize for FunctionMeta {
     }
 }
 
+#[derive(Debug)]
+pub struct GlobalVariable {
+    pub index: u32,
+    pub value: u64,
+}
+
+impl Serialize for GlobalVariable {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
+        let mut s = serializer.serialize_struct("GlobalVariable", 3)?;
+        s.serialize_field("index", &self.index)?;
+        s.serialize_field("value", &self.value)?;
+        s.end()
+    }
+}
 
 #[derive(Default)]
 pub struct Tracer {
@@ -87,6 +103,7 @@ pub struct Tracer {
     cb_on_after_item_added_to_logs: Option<Box<dyn Fn(OpCodeState)>>,
     memory_changes: RefCell<Vec<MemoryState>>,
     fns_meta: Vec<FunctionMeta>,
+    global_variables: Vec<GlobalVariable>
 }
 
 impl Debug for Tracer {
@@ -100,6 +117,7 @@ impl Serialize for Tracer {
         let mut s = serializer.serialize_struct("Tracer", 3)?;
         s.serialize_field("global_memory", &self.global_memory)?;
         s.serialize_field("logs", &self.logs)?;
+        s.serialize_field("global_variables", &self.global_variables)?;
         s.serialize_field("fn_metas", &self.fns_meta)?;
         s.end()
     }
@@ -165,6 +183,17 @@ impl Tracer {
             max_stack_height: max_stack_height as u32,
             num_locals: num_locals as u32,
             fn_name,
+        })
+    }
+
+    pub fn global_variable(
+        &mut self,
+        value: UntypedValue,
+        index: u32,
+    ) {
+        self.global_variables.push(GlobalVariable {
+            value: value.to_bits(),
+            index,
         })
     }
 

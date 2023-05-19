@@ -116,3 +116,26 @@ fn test_global_data() {
     assert_eq!(store.fuel_consumed(), Some(0));
     // Now add too little fuel for a start, so still no success.
 }
+
+#[test]
+fn test_global_variable() {
+    let wasm = wat2wasm(
+        r#"
+(module
+  (type (;0;) (func))
+  (func (;0;) (type 0)
+    global.get 0
+    drop)
+  (memory (;0;) 1)
+  (global (;0;) (mut i32) (i32.const 127))
+  (export "test" (func 0))
+  (export "memory" (memory 0)))
+    "#,
+    );
+    let (mut store, func) = default_test_setup(&wasm);
+    let func = func.typed::<(), ()>(&store).unwrap();
+    // No fuel -> no success.
+    assert_out_of_fuel(func.call(&mut store, ()));
+    assert_eq!(store.fuel_consumed(), Some(0));
+    // Now add too little fuel for a start, so still no success.
+}
