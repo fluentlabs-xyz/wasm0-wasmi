@@ -368,7 +368,7 @@ impl Func {
 
     /// Creates a new host function from the given closure.
     pub fn wrap<T, Params, Results>(
-        mut ctx: impl AsContextMut<UserState=T>,
+        ctx: impl AsContextMut<UserState=T>,
         func: impl IntoFunc<T, Params, Results>,
     ) -> Self {
         Self::wrap_with_meta(ctx, func, String::new())

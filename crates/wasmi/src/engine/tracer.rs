@@ -7,10 +7,9 @@ use serde::ser::SerializeStruct;
 
 use wasmi_core::UntypedValue;
 
-use crate::{Extern, GlobalType};
+use crate::{Extern};
 use crate::engine::bytecode::{InstrMeta, Instruction};
 use crate::engine::opcode::OpCode;
-use crate::module::ConstExpr;
 
 #[derive(Debug, Clone)]
 pub struct MemoryState {

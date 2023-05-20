@@ -17,7 +17,6 @@ use crate::{
     StoreContextMut,
 };
 use crate::engine::bytecode::InstrMeta;
-use crate::func::HostFuncEntity;
 
 pub use self::{
     bytecode::DropKeep,
