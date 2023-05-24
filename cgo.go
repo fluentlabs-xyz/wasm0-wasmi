@@ -61,7 +61,11 @@ func ComputeTraceErrorFromInt32(code int32) error {
 }
 
 func byteArrayToRawPointer(input []byte) (*C.uchar, C.size_t) {
-	var argv = make([]C.uchar, len(input))
+	var capacity = len(input);
+	if capacity == 0 {
+		capacity = 1
+	}
+	var argv = make([]C.uchar, capacity)
 	for i, item := range input {
 		argv[i] = C.uchar(item)
 	}
