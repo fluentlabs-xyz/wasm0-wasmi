@@ -61,7 +61,7 @@ func ComputeTraceErrorFromInt32(code int32) error {
 }
 
 func byteArrayToRawPointer(input []byte) (*C.uchar, C.size_t) {
-	var capacity = len(input);
+	var capacity = len(input)
 	if capacity == 0 {
 		capacity = 1
 	}
@@ -254,8 +254,8 @@ func cArrayToString(charPtr *C.char, len C.int) string {
 	return string(list)
 }
 
-func cCharPtrToString(charPtr *C.char) string {
-	s := C.GoString(charPtr)
+func cCharPtrToString(charPtr *C.char, len C.int32_t) string {
+	s := C.GoStringN(charPtr, C.int(len))
 	C.free(unsafe.Pointer(charPtr))
 	return s
 }
@@ -280,7 +280,7 @@ func callbackHandle_cgo_on_item_added_to_logs(engine_id C.int32_t, json_trace *C
 //export callbackHandle_cgo_i32
 func callbackHandle_cgo_i32(engine_id C.int32_t, fn_name *C.char, fn_name_len C.int32_t, data *C.int32_t, data_len C.int32_t) C.int32_t {
 	engineId := int32(engine_id)
-	fnName := cCharPtrToString(fn_name)
+	fnName := cCharPtrToString(fn_name, fn_name_len)
 	args := cArrayToSliceI32(data, data_len)
 	wasmEngine := wasmEnginesPool.Get(engineId)
 	if wasmEngine == nil {
