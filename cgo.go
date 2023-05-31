@@ -44,6 +44,8 @@ const (
 	ComputeTraceErrorCodeOk ComputeTraceErrorCode = iota
 	ComputeTraceErrorCodeOutOfGas
 	ComputeTraceErrorCodeUnknown
+	ComputeTraceErrorCodeExecutionReverted
+	ComputeTraceErrorCodeStopToken
 )
 
 var (
