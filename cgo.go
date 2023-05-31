@@ -43,23 +43,29 @@ type ComputeTraceErrorCode int32
 const (
 	ComputeTraceErrorCodeOk ComputeTraceErrorCode = iota
 	ComputeTraceErrorCodeOutOfGas
-	ComputeTraceErrorCodeUnknown
 	ComputeTraceErrorCodeExecutionReverted
 	ComputeTraceErrorCodeStopToken
+	ComputeTraceErrorCodeUnknown
 )
 
 var (
-	WasmiErrorOutOfGas = errors.New("out of gas")
-	WasmiErrorUnknown  = errors.New("unknown")
+	ErrorOutOfGas = errors.New("out of gas")
+	ErrorExecutionReverted  = errors.New("execution reverted")
+	ErrorStopToken = errors.New("stop token")
+	ErrorUnknown = errors.New("unknown")
 )
 
 func ComputeTraceErrorFromInt32(code int32) error {
 	c := ComputeTraceErrorCode(code)
 	switch c {
 	case ComputeTraceErrorCodeOutOfGas:
-		return WasmiErrorOutOfGas
+		return ErrorOutOfGas
+	case ComputeTraceErrorCodeExecutionReverted:
+		return ErrorExecutionReverted
+	case ComputeTraceErrorCodeStopToken:
+		return ErrorStopToken
 	}
-	return WasmiErrorUnknown
+	return ErrorUnknown
 }
 
 func byteArrayToRawPointer(input []byte) (*C.uchar, C.size_t) {
