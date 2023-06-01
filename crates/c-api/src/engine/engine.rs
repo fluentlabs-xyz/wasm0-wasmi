@@ -85,6 +85,38 @@ impl WasmEngine {
     //     }
     // }
 
+    pub fn compute_result(&mut self) -> Result<i32, Error> {
+        let func;
+        match self.lock.lock() {
+            Ok(_) => {
+                let instance = self.instance.unwrap();
+                let f = instance.get_func(&self.store, "main").unwrap();
+                func = f.typed::<(), ()>(&self.store).unwrap();
+            },
+            Err(_) => panic!("lock failed")
+        }
+        // do not lock the lines below: wasm calls host functions which may call back to wasmi containing lock
+        let call = func.call_resumable(&mut self.store, ()).unwrap();
+        match call {
+            TypedResumableCall::Finished(_) => {}
+            TypedResumableCall::Resumable(invocation) => {
+                let host_err = invocation.host_error();
+                return Ok(host_err.i32_exit_status().unwrap());
+            }
+        }
+        Ok(0)
+    }
+
+    pub fn dump_trace(&mut self) -> Result<String, Error> {
+        let json_body = match self.lock.lock() {
+            Ok(_) => {
+                self.store.tracer.to_json()
+            },
+            Err(_) => panic!("lock failed")
+        };
+        Ok(json_body)
+    }
+
     pub fn compute_trace(&mut self) -> Result<String, Error> {
         let func;
         match self.lock.lock() {

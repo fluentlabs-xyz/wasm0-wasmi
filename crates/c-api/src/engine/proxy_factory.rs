@@ -71,6 +71,18 @@ impl<'a> ProxyFactory {
         }
     }
 
+    pub fn compute_result(&mut self, engine_id: i32) -> Option<i32> {
+        let we = self.get_wasm_engine(engine_id);
+        let trace: i32 = unsafe { (*we.as_ptr()).compute_result().unwrap() };
+        Some(trace)
+    }
+
+    pub fn dump_trace(&mut self, engine_id: i32) -> Option<String> {
+        let we = self.get_wasm_engine(engine_id);
+        let trace: String = unsafe { (*we.as_ptr()).dump_trace().unwrap() };
+        Some(trace)
+    }
+
     pub fn compute_trace(&mut self, engine_id: i32) -> Option<String> {
         let we = self.get_wasm_engine(engine_id);
         let trace: String = unsafe { (*we.as_ptr()).compute_trace().unwrap() };

@@ -53,6 +53,28 @@ extern "C" fn set_wasm_binary(
 }
 
 #[ffi_export]
+extern "C" fn compute_result(
+    engine_id: i32,
+) -> i32 {
+    let res = unsafe {FACTORY.compute_result(engine_id)};
+    match res {
+        Some(r) => r,
+        None => 0,
+    }
+}
+
+#[ffi_export]
+extern "C" fn dump_trace(
+    engine_id: i32,
+) -> repr_c::Vec<u8> {
+    let res = unsafe {FACTORY.dump_trace(engine_id)};
+    match res {
+        Some(r) => repr_c::Vec::from(r.as_bytes().to_vec()),
+        None => repr_c::Vec::from(Vec::new())
+    }
+}
+
+#[ffi_export]
 extern "C" fn compute_trace(
     engine_id: i32,
 ) -> repr_c::Vec<u8> {

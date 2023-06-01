@@ -156,6 +156,28 @@ func (we *WasmEngine) SetWasmBinary(wasmBinary []byte) {
 	C.set_wasm_binary(C.int(we.id), cVec, cLen)
 }
 
+func (we *WasmEngine) ComputeResult() (traceJson int32, err error) {
+	res := C.compute_result(C.int(we.id))
+	return int32(res), nil
+}
+
+func (we *WasmEngine) DumpTrace() (traceJson []byte, err error) {
+	res := C.dump_trace(C.int(we.id))
+	traceJson = C.GoBytes(unsafe.Pointer(res.ptr), C.int(res.len))
+	if len(traceJson) < 15 {
+		traceJsonStr := string(traceJson)
+		if strings.HasPrefix(traceJsonStr, "error:") {
+			errorCodeStr := strings.TrimPrefix(traceJsonStr, "error:")
+			errorCode, err := strconv.Atoi(errorCodeStr)
+			if err != nil {
+				return nil, err
+			}
+			return nil, ComputeTraceErrorFromInt32(int32(errorCode))
+		}
+	}
+	return traceJson, nil
+}
+
 func (we *WasmEngine) ComputeTrace() (traceJson []byte, err error) {
 	res := C.compute_trace(C.int(we.id))
 	traceJson = C.GoBytes(unsafe.Pointer(res.ptr), C.int(res.len))

@@ -42,6 +42,12 @@ void set_wasm_binary (
     uint8_t * wasm_binary,
     size_t wasm_binary_length);
 
+int32_t compute_result (
+    int32_t engine_id);
+
+Vec_uint8_t dump_trace (
+    int32_t engine_id);
+
 Vec_uint8_t compute_trace (
     int32_t engine_id);
 
