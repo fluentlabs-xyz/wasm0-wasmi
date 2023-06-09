@@ -117,6 +117,11 @@ impl WasmEngine {
         Ok(json_body)
     }
 
+    pub fn get_last_pc(&mut self) -> Option<u32> {
+        self.store.tracer.get_last_pc()
+    }
+
+
     pub fn compute_trace(&mut self) -> Result<String, Error> {
         let func;
         match self.lock.lock() {

@@ -75,6 +75,13 @@ extern "C" fn dump_trace(
 }
 
 #[ffi_export]
+extern "C" fn get_last_pc(
+    engine_id: i32,
+) -> u32 {
+    unsafe {FACTORY.get_last_pc(engine_id)}.unwrap_or_default()
+}
+
+#[ffi_export]
 extern "C" fn compute_trace(
     engine_id: i32,
 ) -> repr_c::Vec<u8> {

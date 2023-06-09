@@ -178,6 +178,11 @@ func (we *WasmEngine) DumpTrace() (traceJson []byte, err error) {
 	return traceJson, nil
 }
 
+func (we *WasmEngine) GetLastPc() (traceJson int32, err error) {
+	res := C.get_last_pc(C.int(we.id))
+	return int32(res), nil
+}
+
 func (we *WasmEngine) ComputeTrace() (traceJson []byte, err error) {
 	res := C.compute_trace(C.int(we.id))
 	traceJson = C.GoBytes(unsafe.Pointer(res.ptr), C.int(res.len))

@@ -48,6 +48,9 @@ int32_t compute_result (
 Vec_uint8_t dump_trace (
     int32_t engine_id);
 
+uint32_t get_last_pc (
+    int32_t engine_id);
+
 Vec_uint8_t compute_trace (
     int32_t engine_id);
 

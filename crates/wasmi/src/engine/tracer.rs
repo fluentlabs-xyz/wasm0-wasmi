@@ -138,6 +138,10 @@ impl Tracer {
         });
     }
 
+    pub fn get_last_pc(&self) -> Option<u32> {
+        self.logs.last().map(|opcode| opcode.source_pc)
+    }
+
     pub fn register_extern(&mut self, ex: Extern, name: &Box<str>, entity_index: u32) {
         match ex {
             Extern::Global(_) => {}

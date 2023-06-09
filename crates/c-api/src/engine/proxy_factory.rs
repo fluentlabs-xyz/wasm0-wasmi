@@ -83,6 +83,11 @@ impl<'a> ProxyFactory {
         Some(trace)
     }
 
+    pub fn get_last_pc(&mut self, engine_id: i32) -> Option<u32> {
+        let we = self.get_wasm_engine(engine_id);
+        unsafe { (*we.as_ptr()).get_last_pc() }
+    }
+
     pub fn compute_trace(&mut self, engine_id: i32) -> Option<String> {
         let we = self.get_wasm_engine(engine_id);
         let trace: String = unsafe { (*we.as_ptr()).compute_trace().unwrap() };
