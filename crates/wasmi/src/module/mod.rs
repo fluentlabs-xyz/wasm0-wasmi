@@ -12,7 +12,8 @@ mod parser;
 mod read;
 mod utils;
 
-use self::{
+pub use self::{
+    parser::ModuleParser,
     builder::ModuleBuilder,
     export::ExternIdx,
     global::Global,
@@ -31,7 +32,7 @@ pub use self::{
     parser::ReusableAllocations,
     read::Read,
 };
-pub(crate) use self::{
+pub use self::{
     data::{DataSegment, DataSegmentKind},
     element::{ElementSegment, ElementSegmentItems, ElementSegmentKind},
     init_expr::ConstExpr,
@@ -52,19 +53,19 @@ use core::{iter, slice::Iter as SliceIter};
 /// A parsed and validated WebAssembly module.
 #[derive(Debug)]
 pub struct Module {
-    engine: Engine,
-    func_types: Arc<[DedupFuncType]>,
-    imports: ModuleImports,
-    funcs: Box<[DedupFuncType]>,
-    tables: Box<[TableType]>,
-    memories: Box<[MemoryType]>,
-    globals: Box<[GlobalType]>,
-    globals_init: Box<[ConstExpr]>,
-    exports: BTreeMap<Box<str>, ExternIdx>,
-    start: Option<FuncIdx>,
-    func_bodies: Box<[FuncBody]>,
-    element_segments: Box<[ElementSegment]>,
-    data_segments: Box<[DataSegment]>,
+    pub engine: Engine,
+    pub func_types: Arc<[DedupFuncType]>,
+    pub imports: ModuleImports,
+    pub funcs: Box<[DedupFuncType]>,
+    pub tables: Box<[TableType]>,
+    pub memories: Box<[MemoryType]>,
+    pub globals: Box<[GlobalType]>,
+    pub globals_init: Box<[ConstExpr]>,
+    pub exports: BTreeMap<Box<str>, ExternIdx>,
+    pub start: Option<FuncIdx>,
+    pub func_bodies: Box<[FuncBody]>,
+    pub element_segments: Box<[ElementSegment]>,
+    pub data_segments: Box<[DataSegment]>,
 }
 
 /// The index of the default Wasm linear memory.
@@ -93,21 +94,21 @@ pub enum Imported {
 #[derive(Debug)]
 pub struct ModuleImports {
     /// All names and types of all imported items.
-    items: Box<[Imported]>,
+    pub items: Box<[Imported]>,
     /// The amount of imported [`Func`].
     ///
     /// [`Func`]: [`crate::Func`]
-    len_funcs: usize,
+    pub len_funcs: usize,
     /// The amount of imported [`Global`].
-    len_globals: usize,
+    pub len_globals: usize,
     /// The amount of imported [`Memory`].
     ///
     /// [`Memory`]: [`crate::Memory`]
-    len_memories: usize,
+    pub len_memories: usize,
     /// The amount of imported [`Table`].
     ///
     /// [`Table`]: [`crate::Table`]
-    len_tables: usize,
+    pub len_tables: usize,
 }
 
 impl ModuleImports {
@@ -214,7 +215,7 @@ impl Module {
     /// Returns an iterator over the internally defined [`Func`].
     ///
     /// [`Func`]: [`crate::Func`]
-    pub(crate) fn internal_funcs(&self) -> InternalFuncsIter {
+    pub fn internal_funcs(&self) -> InternalFuncsIter {
         let len_imported = self.imports.len_funcs;
         // We skip the first `len_imported` elements in `funcs`
         // since they refer to imported and not internally defined
@@ -228,7 +229,7 @@ impl Module {
     }
 
     /// Returns an iterator over the [`MemoryType`] of internal linear memories.
-    fn internal_memories(&self) -> SliceIter<MemoryType> {
+    pub fn internal_memories(&self) -> SliceIter<MemoryType> {
         let len_imported = self.imports.len_memories;
         // We skip the first `len_imported` elements in `memories`
         // since they refer to imported and not internally defined
@@ -248,7 +249,7 @@ impl Module {
     }
 
     /// Returns an iterator over the internally defined [`Global`].
-    fn internal_globals(&self) -> InternalGlobalsIter {
+    pub fn internal_globals(&self) -> InternalGlobalsIter {
         let len_imported = self.imports.len_globals;
         // We skip the first `len_imported` elements in `globals`
         // since they refer to imported and not internally defined

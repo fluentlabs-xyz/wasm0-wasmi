@@ -122,11 +122,17 @@ impl CodeMap {
         instrs.get(index)
     }
 
+    pub fn instr_vec(&self, func_body: FuncBody) -> Vec<Instruction> {
+        let header = self.header(func_body);
+        let start = header.iref.start;
+        let end = self.instr_end(func_body);
+        self.insts[start..end].to_vec()
+    }
+
     /// Returns the `end` index of the instructions of [`FuncBody`].
     ///
     /// This is important to synthesize how many instructions there are in
     /// the function referred to by [`FuncBody`].
-    #[cfg(test)]
     pub fn instr_end(&self, func_body: FuncBody) -> usize {
         self.headers
             .get(func_body.0 + 1)

@@ -53,15 +53,15 @@ pub fn parse(engine: &Engine, stream: impl Read) -> Result<Module, ModuleError> 
 /// Context used to construct a WebAssembly module from a stream of bytes.
 pub struct ModuleParser<'engine> {
     /// The module builder used throughout stream parsing.
-    builder: ModuleBuilder<'engine>,
+    pub builder: ModuleBuilder<'engine>,
     /// The Wasm validator used throughout stream parsing.
-    validator: Validator,
+    pub validator: Validator,
     /// The underlying Wasm parser.
-    parser: WasmParser,
+    pub parser: WasmParser,
     /// Currently processed function.
-    func: FuncIdx,
+    pub func: FuncIdx,
     /// Reusable allocations for validating and translation functions.
-    allocations: ReusableAllocations,
+    pub allocations: ReusableAllocations,
 }
 
 /// Reusable heap allocations for function validation and translation.
@@ -73,7 +73,7 @@ pub struct ReusableAllocations {
 
 impl<'engine> ModuleParser<'engine> {
     /// Creates a new [`ModuleParser`] for the given [`Engine`].
-    fn new(engine: &'engine Engine) -> Self {
+    pub fn new(engine: &'engine Engine) -> Self {
         let builder = ModuleBuilder::new(engine);
         let validator = Validator::new_with_features(Self::features(engine));
         let parser = WasmParser::new(0);
@@ -118,6 +118,28 @@ impl<'engine> ModuleParser<'engine> {
             }
         }
         Ok(self.builder.finish())
+    }
+
+    pub fn build(mut self, mut stream: impl Read) -> Result<ModuleBuilder<'engine>, ModuleError> {
+        let mut buffer = Vec::new();
+        let mut eof = false;
+        'outer: loop {
+            match self.parser.parse(&buffer[..], eof)? {
+                Chunk::NeedMoreData(hint) => {
+                    eof = Self::pull_bytes(&mut buffer, hint, &mut stream)?;
+                    continue 'outer;
+                }
+                Chunk::Parsed { consumed, payload } => {
+                    eof = self.process_payload(payload)?;
+                    // Cut away the parts from the intermediate buffer that have already been parsed.
+                    buffer.drain(..consumed);
+                    if eof {
+                        break 'outer;
+                    }
+                }
+            }
+        }
+        Ok(self.builder)
     }
 
     /// Pulls more bytes from the `stream` in order to produce Wasm payload.

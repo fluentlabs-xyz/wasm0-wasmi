@@ -17,9 +17,10 @@ use crate::{
     StoreContextMut,
 };
 use crate::engine::bytecode::InstrMeta;
+use crate::engine::code_map::{InstructionPtr, InstructionsRef};
 
 pub use self::{
-    bytecode::DropKeep,
+    bytecode::{BranchParams, DropKeep, Instruction},
     code_map::FuncBody,
     config::{Config, FuelConsumptionMode},
     func_builder::{
@@ -34,7 +35,6 @@ pub use self::{
     traits::{CallParams, CallResults},
 };
 use self::{
-    bytecode::Instruction,
     cache::InstanceCache,
     code_map::CodeMap,
     executor::{execute_wasm, WasmOutcome},
@@ -188,6 +188,10 @@ impl Engine {
     #[cfg(test)]
     pub(crate) fn resolve_inst(&self, func_body: FuncBody, index: usize) -> Option<Instruction> {
         self.inner.resolve_inst(func_body, index)
+    }
+
+    pub fn instr_vec(&self, func_body: FuncBody) -> Vec<Instruction> {
+        self.inner.instr_vec(func_body)
     }
 
     /// Executes the given [`Func`] with parameters `params`.
@@ -399,6 +403,13 @@ impl EngineInner {
             .code_map
             .get_instr(func_body, index)
             .copied()
+    }
+
+    fn instr_vec(&self, func_body: FuncBody) -> Vec<Instruction> {
+        self.res
+            .read()
+            .code_map
+            .instr_vec(func_body)
     }
 
     fn execute_func<T, Results>(

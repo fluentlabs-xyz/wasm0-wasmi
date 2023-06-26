@@ -9,9 +9,9 @@ use wasmparser::TypeRef;
 #[derive(Debug)]
 pub struct Import {
     /// The name of the imported item.
-    name: ImportName,
+    pub name: ImportName,
     /// The type of the imported item.
-    kind: ExternTypeIdx,
+    pub kind: ExternTypeIdx,
 }
 
 /// The name or namespace of an imported item.
@@ -20,11 +20,11 @@ pub struct ImportName {
     /// The name of the [`Module`] that defines the imported item.
     ///
     /// [`Module`]: [`super::Module`]
-    module: Box<str>,
+    pub module: Box<str>,
     /// The name of the imported item within the [`Module`] namespace.
     ///
     /// [`Module`]: [`super::Module`]
-    field: Box<str>,
+    pub field: Box<str>,
 }
 
 impl Display for ImportName {
