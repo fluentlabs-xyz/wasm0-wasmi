@@ -20,7 +20,7 @@ use crate::engine::bytecode::InstrMeta;
 use crate::engine::code_map::{InstructionPtr, InstructionsRef};
 
 pub use self::{
-    bytecode::{BranchParams, DropKeep, Instruction},
+    bytecode::{BranchParams, BranchOffset, DropKeep, Instruction},
     code_map::FuncBody,
     config::{Config, FuelConsumptionMode},
     func_builder::{

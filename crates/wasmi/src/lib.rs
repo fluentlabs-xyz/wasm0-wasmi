@@ -131,6 +131,7 @@ pub use self::{
         Instruction,
         DropKeep,
         BranchParams,
+        BranchOffset,
     },
     error::Error,
     externref::ExternRef,
