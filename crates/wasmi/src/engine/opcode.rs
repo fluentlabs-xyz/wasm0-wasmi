@@ -65,6 +65,8 @@ impl OpCode {
             TableInit { .. } => "table_init",
             ElemDrop(_) => "elem_drop",
             RefFunc { .. } => "ref_func",
+            I32Const(_) => "i32_const",
+            I64Const(_) => "i64_const",
             Const(_) => "const",
             I32Eqz => "i32_eqz",
             I32Eq => "i32_eq",

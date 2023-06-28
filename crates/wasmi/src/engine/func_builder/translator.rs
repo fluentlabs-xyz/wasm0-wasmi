@@ -428,7 +428,7 @@ impl<'parser> FuncTranslator<'parser> {
         if let (Mutability::Const, Some(init_expr)) = (global_type.mutability(), init_value) {
             if let Some(value) = init_expr.eval_const() {
                 // We can optimize `global.get` to the constant value.
-                return Some(Instruction::constant(value));
+                return Some(Instruction::const_i64(value));
             }
             if let Some(func_index) = init_expr.funcref() {
                 // We can optimize `global.get` to the equivalent `ref.func x` instruction.
@@ -526,6 +526,7 @@ impl<'parser> FuncTranslator<'parser> {
     /// - `i64.const`
     /// - `f32.const`
     /// - `f64.const`
+    #[deprecated(note = "use 32/64 bit version")]
     fn translate_const<T>(&mut self, value: T) -> Result<(), TranslationError>
         where
             T: Into<Value>,
@@ -538,6 +539,38 @@ impl<'parser> FuncTranslator<'parser> {
                 .alloc
                 .inst_builder
                 .push_inst(Instruction::constant(value));
+            Ok(())
+        })
+    }
+
+    fn translate_const_i32<T>(&mut self, value: T) -> Result<(), TranslationError>
+        where
+            T: Into<Value>,
+    {
+        self.translate_if_reachable(|builder| {
+            builder.bump_fuel_consumption(builder.fuel_costs().base);
+            let value = value.into();
+            builder.stack_height.push();
+            builder
+                .alloc
+                .inst_builder
+                .push_inst(Instruction::const_i32(value));
+            Ok(())
+        })
+    }
+
+    fn translate_const_i64<T>(&mut self, value: T) -> Result<(), TranslationError>
+        where
+            T: Into<Value>,
+    {
+        self.translate_if_reachable(|builder| {
+            builder.bump_fuel_consumption(builder.fuel_costs().base);
+            let value = value.into();
+            builder.stack_height.push();
+            builder
+                .alloc
+                .inst_builder
+                .push_inst(Instruction::const_i64(value));
             Ok(())
         })
     }
@@ -1254,7 +1287,7 @@ impl<'a> VisitOperator<'a> for FuncTranslator<'a> {
         // Since `wasmi` bytecode is untyped we have no special `null` instructions
         // but simply reuse the `constant` instruction with an immediate value of 0.
         // Note that `FuncRef` and `ExternRef` are encoded as 64-bit values in `wasmi`.
-        self.translate_const(0i64)
+        self.translate_const_i32(0i64)
     }
 
     fn visit_ref_is_null(&mut self) -> Result<(), TranslationError> {
@@ -1638,19 +1671,19 @@ impl<'a> VisitOperator<'a> for FuncTranslator<'a> {
     }
 
     fn visit_i32_const(&mut self, value: i32) -> Result<(), TranslationError> {
-        self.translate_const(value)
+        self.translate_const_i32(value)
     }
 
     fn visit_i64_const(&mut self, value: i64) -> Result<(), TranslationError> {
-        self.translate_const(value)
+        self.translate_const_i64(value)
     }
 
     fn visit_f32_const(&mut self, value: wasmparser::Ieee32) -> Result<(), TranslationError> {
-        self.translate_const(F32::from_bits(value.bits()))
+        self.translate_const_i32(F32::from_bits(value.bits()))
     }
 
     fn visit_f64_const(&mut self, value: wasmparser::Ieee64) -> Result<(), TranslationError> {
-        self.translate_const(F64::from_bits(value.bits()))
+        self.translate_const_i64(F64::from_bits(value.bits()))
     }
 
     fn visit_i32_eqz(&mut self) -> Result<(), TranslationError> {

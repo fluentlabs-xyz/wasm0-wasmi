@@ -44,7 +44,7 @@ impl InstrMeta {
 ///
 /// For example the `BrTable` instruction is unrolled into separate instructions
 /// each representing either the `BrTable` head or one of its branching targets.
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Default)]
 pub enum Instruction {
     LocalGet {
         local_depth: LocalDepth,
@@ -61,6 +61,7 @@ pub enum Instruction {
     BrTable {
         len_targets: usize,
     },
+    #[default]
     Unreachable,
     ConsumeFuel {
         amount: u64,
@@ -141,7 +142,10 @@ pub enum Instruction {
     RefFunc {
         func_index: FuncIdx,
     },
+    #[deprecated(note = "use 64/32 bit versions")]
     Const(UntypedValue),
+    I64Const(UntypedValue),
+    I32Const(UntypedValue),
     I32Eqz,
     I32Eq,
     I32Ne,
@@ -278,11 +282,26 @@ pub enum Instruction {
 
 impl Instruction {
     /// Creates a new `Const` instruction from the given value.
+    #[deprecated(note = "use 64/32 bit version")]
     pub fn constant<C>(value: C) -> Self
     where
         C: Into<UntypedValue>,
     {
         Self::Const(value.into())
+    }
+
+    pub fn const_i32<C>(value: C) -> Self
+    where
+        C: Into<UntypedValue>,
+    {
+        Self::I32Const(value.into())
+    }
+
+    pub fn const_i64<C>(value: C) -> Self
+    where
+        C: Into<UntypedValue>,
+    {
+        Self::I64Const(value.into())
     }
 
     /// Creates a new `local.get` instruction from the given local depth.

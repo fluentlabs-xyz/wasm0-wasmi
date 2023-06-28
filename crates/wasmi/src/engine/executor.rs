@@ -305,6 +305,8 @@ impl<'ctx, 'engine> Executor<'ctx, 'engine> {
                 Instr::ElemDrop(segment) => self.visit_element_drop(segment),
                 Instr::RefFunc { func_index } => self.visit_ref_func(func_index),
                 Instr::Const(bytes) => self.visit_const(bytes),
+                Instr::I32Const(bytes) => self.visit_const(bytes),
+                Instr::I64Const(bytes) => self.visit_const(bytes),
                 Instr::I32Eqz => self.visit_i32_eqz(),
                 Instr::I32Eq => self.visit_i32_eq(),
                 Instr::I32Ne => self.visit_i32_ne(),
