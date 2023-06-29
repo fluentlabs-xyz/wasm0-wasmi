@@ -14,7 +14,7 @@ use std::error::Error as StdError;
 #[derive(Debug)]
 pub struct Trap {
     /// The cloneable reason of a [`Trap`].
-    reason: Box<TrapReason>,
+    pub reason: Box<TrapReason>,
 }
 
 #[test]
@@ -27,7 +27,7 @@ fn trap_size() {
 
 /// The reason of a [`Trap`].
 #[derive(Debug)]
-enum TrapReason {
+pub enum TrapReason {
     /// Traps during Wasm execution.
     InstructionTrap(TrapCode),
     /// An `i32` exit status code.

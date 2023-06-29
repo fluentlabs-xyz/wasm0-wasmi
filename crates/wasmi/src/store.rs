@@ -1,5 +1,5 @@
 use crate::{
-    engine::DedupFuncType,
+    engine::{tracer::Tracer, DedupFuncType},
     externref::{ExternObject, ExternObjectEntity, ExternObjectIdx},
     func::{Trampoline, TrampolineEntity, TrampolineIdx},
     memory::DataSegment,
@@ -32,7 +32,6 @@ use core::{
 };
 use wasmi_arena::{Arena, ArenaIndex, GuardedEntity};
 use wasmi_core::TrapCode;
-use crate::engine::tracer::Tracer;
 
 /// A unique store index.
 ///
@@ -77,7 +76,7 @@ pub struct Store<T> {
     ///
     /// This is re-exported to the rest of the crate since
     /// it is used directly by the engine's executor.
-    pub(crate) inner: StoreInner,
+    pub inner: StoreInner,
     /// Stored host function trampolines.
     trampolines: Arena<TrampolineIdx, TrampolineEntity<T>>,
     /// User provided host data owned by the [`Store`].
@@ -263,7 +262,7 @@ impl StoreInner {
     ///
     /// [`Stored<Idx>`] associates an `Idx` type with the internal store index.
     /// This way wrapped indices cannot be misused with incorrect [`Store`] instances.
-    fn wrap_stored<Idx>(&self, entity_idx: Idx) -> Stored<Idx> {
+    pub fn wrap_stored<Idx>(&self, entity_idx: Idx) -> Stored<Idx> {
         Stored::new(self.store_idx, entity_idx)
     }
 
@@ -807,7 +806,7 @@ impl<T> Store<T> {
     ///
     /// - If the [`Trampoline`] does not originate from this [`Store`].
     /// - If the [`Trampoline`] cannot be resolved to its entity.
-    pub(super) fn resolve_trampoline(&self, func: &Trampoline) -> &TrampolineEntity<T> {
+    pub fn resolve_trampoline(&self, func: &Trampoline) -> &TrampolineEntity<T> {
         let entity_index = self.inner.unwrap_stored(func.as_inner());
         self.trampolines
             .get(entity_index)
@@ -837,7 +836,7 @@ pub trait AsContextMut: AsContext {
 #[derive(Debug, Copy, Clone)]
 #[repr(transparent)]
 pub struct StoreContext<'a, T> {
-    pub(crate) store: &'a Store<T>,
+    pub store: &'a Store<T>,
 }
 
 impl<'a, T> StoreContext<'a, T> {

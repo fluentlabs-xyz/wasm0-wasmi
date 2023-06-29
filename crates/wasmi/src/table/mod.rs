@@ -584,7 +584,7 @@ impl Table {
     /// We do not implement `Eq` and `PartialEq` and
     /// intentionally keep this API hidden from users.
     #[inline]
-    pub(crate) fn eq(lhs: &Self, rhs: &Self) -> bool {
+    pub fn eq(lhs: &Self, rhs: &Self) -> bool {
         lhs.as_inner() == rhs.as_inner()
     }
 

@@ -8,20 +8,24 @@ use spin::{Mutex, RwLock};
 use wasmi_arena::{ArenaIndex, GuardedEntity};
 
 use crate::{
+    core::{Trap, TrapCode},
+    engine::bytecode::InstrMeta,
+    func::FuncEntity,
     AsContext,
     AsContextMut,
-    core::{Trap, TrapCode},
     Func,
-    func::FuncEntity,
     FuncType,
     StoreContextMut,
 };
-use crate::engine::bytecode::InstrMeta;
 
+use self::resumable::ResumableCallBase;
 pub use self::{
-    bytecode::{BranchParams, BranchOffset, DropKeep, Instruction, Offset},
-    code_map::FuncBody,
-    config::{Config, FuelConsumptionMode},
+    bytecode::{BranchOffset, BranchParams, DropKeep, Instruction, Offset},
+    cache::InstanceCache,
+    code_map::{CodeMap, FuncBody, FuncHeader, InstructionPtr},
+    config::{Config, FuelConsumptionMode, FuelCosts},
+    executor::{execute_wasm, WasmOutcome},
+    func_args::{FuncFinished, FuncParams, FuncResults},
     func_builder::{
         FuncBuilder,
         FuncTranslatorAllocations,
@@ -29,21 +33,11 @@ pub use self::{
         RelativeDepth,
         TranslationError,
     },
+    func_types::{DedupFuncType, FuncTypeRegistry},
     resumable::{ResumableCall, ResumableInvocation, TypedResumableCall, TypedResumableInvocation},
-    stack::StackLimits,
+    stack::{FuncFrame, Stack, StackLimits, ValueStack},
+    tracer::Tracer,
     traits::{CallParams, CallResults},
-};
-use self::{
-    cache::InstanceCache,
-    code_map::CodeMap,
-    executor::{execute_wasm, WasmOutcome},
-    func_types::FuncTypeRegistry,
-    resumable::ResumableCallBase,
-    stack::{FuncFrame, Stack, ValueStack},
-};
-pub(crate) use self::{
-    func_args::{FuncFinished, FuncParams, FuncResults},
-    func_types::DedupFuncType,
 };
 
 pub mod bytecode;
@@ -54,11 +48,11 @@ pub mod executor;
 mod func_args;
 mod func_builder;
 mod func_types;
+pub mod opcode;
 mod resumable;
 pub mod stack;
-mod traits;
 pub mod tracer;
-pub mod opcode;
+mod traits;
 
 #[cfg(test)]
 mod tests;
@@ -138,7 +132,7 @@ impl Engine {
     }
 
     /// Allocates a new function type to the engine.
-    pub(super) fn alloc_func_type(&self, func_type: FuncType) -> DedupFuncType {
+    pub fn alloc_func_type(&self, func_type: FuncType) -> DedupFuncType {
         self.inner.alloc_func_type(func_type)
     }
 
@@ -149,8 +143,8 @@ impl Engine {
     /// - If the deduplicated function type is not owned by the engine.
     /// - If the deduplicated function type cannot be resolved to its entity.
     pub(super) fn resolve_func_type<F, R>(&self, func_type: &DedupFuncType, f: F) -> R
-        where
-            F: FnOnce(&FuncType) -> R,
+    where
+        F: FnOnce(&FuncType) -> R,
     {
         self.inner.resolve_func_type(func_type, f)
     }
@@ -158,16 +152,16 @@ impl Engine {
     /// Allocates the instructions of a Wasm function body to the [`Engine`].
     ///
     /// Returns a [`FuncBody`] reference to the allocated function body.
-    pub(super) fn alloc_func_body<I>(
+    pub fn alloc_func_body<I>(
         &self,
         len_locals: usize,
         max_stack_height: usize,
         insts: I,
         metas: Vec<InstrMeta>,
     ) -> FuncBody
-        where
-            I: IntoIterator<Item=Instruction>,
-            I::IntoIter: ExactSizeIterator,
+    where
+        I: IntoIterator<Item = Instruction>,
+        I::IntoIter: ExactSizeIterator,
     {
         self.inner
             .alloc_func_body(len_locals, max_stack_height, insts, metas)
@@ -213,15 +207,15 @@ impl Engine {
     ///
     /// [`TypedFunc`]: [`crate::TypedFunc`]
     #[inline]
-    pub(crate) fn execute_func<T, Results>(
+    pub fn execute_func<T, Results>(
         &self,
         ctx: StoreContextMut<T>,
         func: &Func,
         params: impl CallParams,
         results: Results,
     ) -> Result<<Results as CallResults>::Results, Trap>
-        where
-            Results: CallResults,
+    where
+        Results: CallResults,
     {
         self.inner.execute_func(ctx, func, params, results)
     }
@@ -256,8 +250,8 @@ impl Engine {
         params: impl CallParams,
         results: Results,
     ) -> Result<ResumableCallBase<<Results as CallResults>::Results>, Trap>
-        where
-            Results: CallResults,
+    where
+        Results: CallResults,
     {
         self.inner
             .execute_func_resumable(ctx, func, params, results)
@@ -293,8 +287,8 @@ impl Engine {
         params: impl CallParams,
         results: Results,
     ) -> Result<ResumableCallBase<<Results as CallResults>::Results>, Trap>
-        where
-            Results: CallResults,
+    where
+        Results: CallResults,
     {
         self.inner.resume_func(ctx, invocation, params, results)
     }
@@ -377,10 +371,16 @@ impl EngineInner {
         self.res.write().func_types.alloc_func_type(func_type)
     }
 
-    fn alloc_func_body<I>(&self, len_locals: usize, max_stack_height: usize, insts: I, metas: Vec<InstrMeta>) -> FuncBody
-        where
-            I: IntoIterator<Item=Instruction>,
-            I::IntoIter: ExactSizeIterator,
+    fn alloc_func_body<I>(
+        &self,
+        len_locals: usize,
+        max_stack_height: usize,
+        insts: I,
+        metas: Vec<InstrMeta>,
+    ) -> FuncBody
+    where
+        I: IntoIterator<Item = Instruction>,
+        I::IntoIter: ExactSizeIterator,
     {
         self.res
             .write()
@@ -389,8 +389,8 @@ impl EngineInner {
     }
 
     fn resolve_func_type<F, R>(&self, func_type: &DedupFuncType, f: F) -> R
-        where
-            F: FnOnce(&FuncType) -> R,
+    where
+        F: FnOnce(&FuncType) -> R,
     {
         f(self.res.read().func_types.resolve_func_type(func_type))
     }
@@ -405,10 +405,7 @@ impl EngineInner {
     }
 
     fn instr_vec(&self, func_body: FuncBody) -> Vec<Instruction> {
-        self.res
-            .read()
-            .code_map
-            .instr_vec(func_body)
+        self.res.read().code_map.instr_vec(func_body)
     }
 
     fn execute_func<T, Results>(
@@ -418,8 +415,8 @@ impl EngineInner {
         params: impl CallParams,
         results: Results,
     ) -> Result<<Results as CallResults>::Results, Trap>
-        where
-            Results: CallResults,
+    where
+        Results: CallResults,
     {
         let res = self.res.read();
         let mut stack = self.stacks.lock().reuse_or_new();
@@ -437,8 +434,8 @@ impl EngineInner {
         params: impl CallParams,
         results: Results,
     ) -> Result<ResumableCallBase<<Results as CallResults>::Results>, Trap>
-        where
-            Results: CallResults,
+    where
+        Results: CallResults,
     {
         let res = self.res.read();
         let mut stack = self.stacks.lock().reuse_or_new();
@@ -458,9 +455,9 @@ impl EngineInner {
                 Err(trap)
             }
             Err(TaggedTrap::Host {
-                    host_func,
-                    host_trap,
-                }) => Ok(ResumableCallBase::Resumable(ResumableInvocation::new(
+                host_func,
+                host_trap,
+            }) => Ok(ResumableCallBase::Resumable(ResumableInvocation::new(
                 ctx.as_context().store.engine().clone(),
                 *func,
                 host_func,
@@ -477,8 +474,8 @@ impl EngineInner {
         params: impl CallParams,
         results: Results,
     ) -> Result<ResumableCallBase<<Results as CallResults>::Results>, Trap>
-        where
-            Results: CallResults,
+    where
+        Results: CallResults,
     {
         let res = self.res.read();
         let host_func = invocation.host_func();
@@ -494,9 +491,9 @@ impl EngineInner {
                 Err(trap)
             }
             Err(TaggedTrap::Host {
-                    host_func,
-                    host_trap,
-                }) => {
+                host_func,
+                host_trap,
+            }) => {
                 invocation.update(host_func, host_trap);
                 Ok(ResumableCallBase::Resumable(invocation))
             }
@@ -514,19 +511,19 @@ impl EngineInner {
 #[derive(Debug)]
 pub struct EngineResources {
     /// Stores all Wasm function bodies that the interpreter is aware of.
-    code_map: CodeMap,
+    pub code_map: CodeMap,
     /// Deduplicated function types.
     ///
     /// # Note
     ///
     /// The engine deduplicates function types to make the equality
     /// comparison very fast. This helps to speed up indirect calls.
-    func_types: FuncTypeRegistry,
+    pub func_types: FuncTypeRegistry,
 }
 
 impl EngineResources {
     /// Creates a new [`EngineResources`].
-    fn new() -> Self {
+    pub fn new() -> Self {
         let engine_idx = EngineIdx::new();
         Self {
             code_map: CodeMap::default(),
@@ -585,7 +582,7 @@ pub struct EngineExecutor<'engine> {
 
 impl<'engine> EngineExecutor<'engine> {
     /// Creates a new [`EngineExecutor`] with the given [`StackLimits`].
-    fn new(res: &'engine EngineResources, stack: &'engine mut Stack) -> Self {
+    pub fn new(res: &'engine EngineResources, stack: &'engine mut Stack) -> Self {
         Self { res, stack }
     }
 
@@ -605,12 +602,17 @@ impl<'engine> EngineExecutor<'engine> {
         params: impl CallParams,
         results: Results,
     ) -> Result<<Results as CallResults>::Results, TaggedTrap>
-        where
-            Results: CallResults,
+    where
+        Results: CallResults,
     {
         self.stack.reset();
         self.stack.values.extend(params.call_params());
-        let fn_index = ctx.as_context().store.inner.unwrap_stored(func.as_inner()).into_usize();
+        let fn_index = ctx
+            .as_context()
+            .store
+            .inner
+            .unwrap_stored(func.as_inner())
+            .into_usize();
         match ctx.as_context().store.inner.resolve_func(func) {
             FuncEntity::Wasm(wasm_func) => {
                 self.stack
@@ -659,8 +661,8 @@ impl<'engine> EngineExecutor<'engine> {
         params: impl CallParams,
         results: Results,
     ) -> Result<<Results as CallResults>::Results, TaggedTrap>
-        where
-            Results: CallResults,
+    where
+        Results: CallResults,
     {
         self.stack
             .values
@@ -686,8 +688,8 @@ impl<'engine> EngineExecutor<'engine> {
     /// - If the `results` buffer length does not match the remaining amount of stack values.
     #[inline]
     fn write_results_back<Results>(&mut self, results: Results) -> <Results as CallResults>::Results
-        where
-            Results: CallResults,
+    where
+        Results: CallResults,
     {
         results.call_results(self.stack.values.drain())
     }
@@ -773,6 +775,14 @@ impl<'engine> EngineExecutor<'engine> {
         let value_stack = &mut self.stack.values;
         let call_stack = &mut self.stack.frames;
         let code_map = &self.res.code_map;
-        execute_wasm(store_inner, cache, value_stack, call_stack, code_map, &mut ctx.store.tracer).map_err(make_trap)
+        execute_wasm(
+            store_inner,
+            cache,
+            value_stack,
+            call_stack,
+            code_map,
+            &mut ctx.store.tracer,
+        )
+        .map_err(make_trap)
     }
 }

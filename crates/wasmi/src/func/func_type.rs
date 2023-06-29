@@ -49,7 +49,7 @@ impl FuncType {
     }
 
     /// Returns the pair of parameter and result types of the function type.
-    pub(crate) fn params_results(&self) -> (&[ValueType], &[ValueType]) {
+    pub fn params_results(&self) -> (&[ValueType], &[ValueType]) {
         self.params_results.split_at(self.len_params)
     }
 
