@@ -69,6 +69,21 @@ impl InstanceEntityBuilder {
         }
     }
 
+    pub fn empty() -> Self {
+        let func_types: [DedupFuncType; 0] = [];
+        Self {
+            func_types: Arc::new(func_types),
+            tables: Vec::new(),
+            funcs: Vec::new(),
+            memories: Vec::new(),
+            globals: Vec::new(),
+            start_fn: None,
+            exports: BTreeMap::default(),
+            data_segments: Vec::new(),
+            elem_segments: Vec::new(),
+        }
+    }
+
     /// Sets the start function of the built instance.
     ///
     /// # Panics

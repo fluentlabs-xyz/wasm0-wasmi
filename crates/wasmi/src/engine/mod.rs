@@ -22,7 +22,7 @@ use self::resumable::ResumableCallBase;
 pub use self::{
     bytecode::{BranchOffset, BranchParams, DropKeep, Instruction, Offset},
     cache::InstanceCache,
-    code_map::{CodeMap, FuncBody, FuncHeader, InstructionPtr},
+    code_map::{CodeMap, FuncBody, FuncHeader, InstructionPtr, InstructionsRef},
     config::{Config, FuelConsumptionMode, FuelCosts},
     executor::{execute_wasm, WasmOutcome},
     func_args::{FuncFinished, FuncParams, FuncResults},

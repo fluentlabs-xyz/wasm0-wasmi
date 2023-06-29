@@ -1,5 +1,7 @@
-pub(crate) use self::builder::InstanceEntityBuilder;
-pub use self::exports::{Export, ExportsIter, Extern, ExternType};
+pub use self::{
+    builder::InstanceEntityBuilder,
+    exports::{Export, ExportsIter, Extern, ExternType},
+};
 use super::{
     engine::DedupFuncType,
     AsContext,

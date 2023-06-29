@@ -1,13 +1,13 @@
 //! Datastructure to efficiently store function bodies and their instructions.
 
 use super::Instruction;
+use crate::engine::bytecode::InstrMeta;
 use alloc::vec::Vec;
 use wasmi_arena::ArenaIndex;
-use crate::engine::bytecode::InstrMeta;
 
 /// A reference to a Wasm function body stored in the [`CodeMap`].
 #[derive(Debug, Copy, Clone)]
-pub struct FuncBody(usize);
+pub struct FuncBody(pub usize);
 
 impl ArenaIndex for FuncBody {
     fn into_usize(self) -> usize {
@@ -23,18 +23,18 @@ impl ArenaIndex for FuncBody {
 #[derive(Debug, Copy, Clone)]
 pub struct InstructionsRef {
     /// The start index in the instructions array.
-    start: usize,
+    pub start: usize,
 }
 
 /// Meta information about a compiled function.
 #[derive(Debug, Copy, Clone)]
 pub struct FuncHeader {
     /// A reference to the instructions of the function.
-    iref: InstructionsRef,
+    pub iref: InstructionsRef,
     /// The number of local variables of the function.
-    len_locals: usize,
+    pub len_locals: usize,
     /// The maximum stack height usage of the function during execution.
-    max_stack_height: usize,
+    pub max_stack_height: usize,
 }
 
 impl FuncHeader {
@@ -83,7 +83,13 @@ impl CodeMap {
     /// Returns a reference to the allocated function body that can
     /// be used with [`CodeMap::header`] in order to resolve its
     /// instructions.
-    pub fn alloc<I>(&mut self, len_locals: usize, max_stack_height: usize, insts: I, metas: Vec<InstrMeta>) -> FuncBody
+    pub fn alloc<I>(
+        &mut self,
+        len_locals: usize,
+        max_stack_height: usize,
+        insts: I,
+        metas: Vec<InstrMeta>,
+    ) -> FuncBody
     where
         I: IntoIterator<Item = Instruction>,
     {
@@ -104,7 +110,10 @@ impl CodeMap {
     /// Returns an [`InstructionPtr`] to the instruction at [`InstructionsRef`].
     #[inline]
     pub fn instr_ptr(&self, iref: InstructionsRef) -> InstructionPtr {
-        InstructionPtr::new(self.insts[iref.start..].as_ptr(), self.metas[iref.start..].as_ptr())
+        InstructionPtr::new(
+            self.insts[iref.start..].as_ptr(),
+            self.metas[iref.start..].as_ptr(),
+        )
     }
 
     /// Returns the [`FuncHeader`] of the [`FuncBody`].
@@ -165,12 +174,16 @@ impl InstructionPtr {
     /// Creates a new [`InstructionPtr`] for `instr`.
     #[inline]
     pub fn new(ptr: *const Instruction, meta: *const InstrMeta) -> Self {
-        Self { ptr, source: ptr, meta, }
+        Self {
+            ptr,
+            source: ptr,
+            meta,
+        }
     }
 
     #[inline(always)]
     pub fn pc(&self) -> u32 {
-        let size= std::mem::size_of::<Instruction>() as u32;
+        let size = std::mem::size_of::<Instruction>() as u32;
         let diff = self.ptr as u32 - self.source as u32;
         diff / size
     }
