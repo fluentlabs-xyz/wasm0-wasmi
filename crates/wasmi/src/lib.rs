@@ -165,7 +165,7 @@ pub use self::{
         WasmType,
         WasmTypeList,
     },
-    global::{Global, GlobalType, Mutability},
+    global::{Global, GlobalEntity, GlobalType, Mutability},
     instance::{
         Export,
         ExportsIter,
@@ -185,7 +185,7 @@ pub use self::{
 };
 use self::{
     func::FuncIdx,
-    global::{GlobalEntity, GlobalIdx},
+    global::GlobalIdx,
     memory::{DataSegmentEntity, DataSegmentIdx, MemoryIdx},
     table::{ElementSegment, ElementSegmentEntity, ElementSegmentIdx, TableEntity, TableIdx},
 };
