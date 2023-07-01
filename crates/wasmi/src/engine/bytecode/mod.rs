@@ -26,7 +26,6 @@ use wasmi_core::UntypedValue;
 pub struct InstrMeta(pub usize, pub u8);
 
 impl InstrMeta {
-
     pub fn source_pc(&self) -> u32 {
         self.0 as u32
     }
@@ -142,8 +141,6 @@ pub enum Instruction {
     RefFunc {
         func_index: FuncIdx,
     },
-    #[deprecated(note = "use 64/32 bit versions")]
-    Const(UntypedValue),
     I64Const(UntypedValue),
     I32Const(UntypedValue),
     I32Eqz,
@@ -287,7 +284,7 @@ impl Instruction {
     where
         C: Into<UntypedValue>,
     {
-        Self::Const(value.into())
+        Self::I64Const(value.into())
     }
 
     pub fn const_i32<C>(value: C) -> Self

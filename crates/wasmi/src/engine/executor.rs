@@ -20,21 +20,21 @@ use crate::{
         cache::InstanceCache,
         code_map::{CodeMap, InstructionPtr},
         config::FuelCosts,
+        stack::{CallStack, ValueStackPtr},
+        tracer::Tracer,
         DropKeep,
         FuncFrame,
-        stack::{CallStack, ValueStackPtr},
         ValueStack,
     },
+    func::FuncEntity,
+    table::TableEntity,
     FuelConsumptionMode,
     Func,
-    func::FuncEntity,
     FuncRef,
     Instance,
     StoreInner,
     Table,
-    table::TableEntity,
 };
-use crate::engine::tracer::Tracer;
 
 /// The outcome of a Wasm execution.
 ///
@@ -106,7 +106,7 @@ pub fn execute_wasm<'engine>(
 
 /// The function signature of Wasm load operations.
 type WasmLoadOp =
-fn(memory: &[u8], address: UntypedValue, offset: u32) -> Result<UntypedValue, TrapCode>;
+    fn(memory: &[u8], address: UntypedValue, offset: u32) -> Result<UntypedValue, TrapCode>;
 
 /// The function signature of Wasm store operations.
 type WasmStoreOp = fn(
@@ -304,7 +304,6 @@ impl<'ctx, 'engine> Executor<'ctx, 'engine> {
                 Instr::TableInit { table, elem } => self.visit_table_init(table, elem)?,
                 Instr::ElemDrop(segment) => self.visit_element_drop(segment),
                 Instr::RefFunc { func_index } => self.visit_ref_func(func_index),
-                Instr::Const(bytes) => self.visit_const(bytes),
                 Instr::I32Const(bytes) => self.visit_const(bytes),
                 Instr::I64Const(bytes) => self.visit_const(bytes),
                 Instr::I32Eqz => self.visit_i32_eqz(),
@@ -492,7 +491,11 @@ impl<'ctx, 'engine> Executor<'ctx, 'engine> {
         store_wrap(memory, address, offset.into_inner(), value)?;
         self.ip.offset(0);
         let address = u32::from(address);
-        self.tracer.memory_change(address, len, &memory[address as usize..(address + len) as usize]);
+        self.tracer.memory_change(
+            address,
+            len,
+            &memory[address as usize..(address + len) as usize],
+        );
         self.try_next_instr()
     }
 
@@ -572,7 +575,12 @@ impl<'ctx, 'engine> Executor<'ctx, 'engine> {
     /// the function call so that the stack and execution state is synchronized
     /// with the outer structures.
     #[inline(always)]
-    fn call_func(&mut self, func: &Func, kind: CallKind, func_index: u32) -> Result<CallOutcome, TrapCode> {
+    fn call_func(
+        &mut self,
+        func: &Func,
+        kind: CallKind,
+        func_index: u32,
+    ) -> Result<CallOutcome, TrapCode> {
         self.next_instr();
         self.sync_stack_ptr();
         if matches!(kind, CallKind::Nested) {
@@ -641,8 +649,8 @@ impl<'ctx, 'engine> Executor<'ctx, 'engine> {
         delta: impl FnOnce(&FuelCosts) -> u64,
         exec: impl FnOnce(&mut Self) -> Result<T, E>,
     ) -> Result<T, E>
-        where
-            E: From<TrapCode>,
+    where
+        E: From<TrapCode>,
     {
         match self.get_fuel_consumption_mode() {
             None => exec(self),
@@ -665,8 +673,8 @@ impl<'ctx, 'engine> Executor<'ctx, 'engine> {
         delta: impl FnOnce(&FuelCosts) -> u64,
         exec: impl FnOnce(&mut Self) -> Result<T, E>,
     ) -> Result<T, E>
-        where
-            E: From<TrapCode>,
+    where
+        E: From<TrapCode>,
     {
         let delta = delta(self.fuel_costs());
         match mode {
@@ -691,8 +699,8 @@ impl<'ctx, 'engine> Executor<'ctx, 'engine> {
         delta: u64,
         exec: impl FnOnce(&mut Self) -> Result<T, E>,
     ) -> Result<T, E>
-        where
-            E: From<TrapCode>,
+    where
+        E: From<TrapCode>,
     {
         self.ctx.fuel().sufficient_fuel(delta)?;
         let result = exec(self)?;
@@ -715,8 +723,8 @@ impl<'ctx, 'engine> Executor<'ctx, 'engine> {
         delta: u64,
         exec: impl FnOnce(&mut Self) -> Result<T, E>,
     ) -> Result<T, E>
-        where
-            E: From<TrapCode>,
+    where
+        E: From<TrapCode>,
     {
         self.ctx.fuel_mut().consume_fuel(delta)?;
         exec(self)
@@ -1066,7 +1074,8 @@ impl<'ctx, 'engine> Executor<'ctx, 'engine> {
                     .and_then(|data| data.get(..n))
                     .ok_or(TrapCode::MemoryOutOfBounds)?;
                 memory.copy_from_slice(data);
-                this.tracer.global_memory(dst_offset as u32, n as u32, memory);
+                this.tracer
+                    .global_memory(dst_offset as u32, n as u32, memory);
                 Ok(())
             },
         )?;

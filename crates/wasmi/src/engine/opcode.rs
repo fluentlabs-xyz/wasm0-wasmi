@@ -1,5 +1,4 @@
-use crate::engine::bytecode::Instruction;
-use crate::engine::DropKeep;
+use crate::engine::{bytecode::Instruction, DropKeep};
 
 #[derive(Debug, Clone)]
 pub struct OpCode(pub Instruction);
@@ -67,7 +66,6 @@ impl OpCode {
             RefFunc { .. } => "ref_func",
             I32Const(_) => "i32_const",
             I64Const(_) => "i64_const",
-            Const(_) => "const",
             I32Eqz => "i32_eqz",
             I32Eq => "i32_eq",
             I32Ne => "i32_ne",
@@ -205,55 +203,64 @@ impl OpCode {
 
     pub fn params(&self) -> Option<Vec<u64>> {
         let params = match self.0 {
-            Instruction::LocalGet { local_depth } |
-            Instruction::LocalSet { local_depth } |
-            Instruction::LocalTee { local_depth } => vec![local_depth.into_inner() as u64],
-            Instruction::Br(bp) |
-            Instruction::BrIfEqz(bp) |
-            Instruction::BrIfNez(bp) => vec![bp.offset().into_i32() as u64],
+            Instruction::LocalGet { local_depth }
+            | Instruction::LocalSet { local_depth }
+            | Instruction::LocalTee { local_depth } => vec![local_depth.into_inner() as u64],
+            Instruction::Br(bp) | Instruction::BrIfEqz(bp) | Instruction::BrIfNez(bp) => {
+                vec![bp.offset().into_i32() as u64]
+            }
             Instruction::BrTable { len_targets } => vec![len_targets as u64],
             Instruction::ConsumeFuel { amount } => vec![amount as u64],
             Instruction::ReturnCall { func, .. } => vec![func.into_inner() as u64],
-            Instruction::ReturnCallIndirect { table, func_type, .. } => vec![table.into_inner() as u64, func_type.into_inner() as u64],
+            Instruction::ReturnCallIndirect {
+                table, func_type, ..
+            } => vec![table.into_inner() as u64, func_type.into_inner() as u64],
             Instruction::Call(func) => vec![func.into_inner() as u64],
-            Instruction::CallIndirect { table, func_type } => vec![table.into_inner() as u64, func_type.into_inner() as u64],
-            Instruction::GlobalGet(global_index) |
-            Instruction::GlobalSet(global_index) => vec![global_index.into_inner() as u64],
-            Instruction::I32Load(offset) |
-            Instruction::I64Load(offset) |
-            Instruction::F32Load(offset) |
-            Instruction::F64Load(offset) |
-            Instruction::I32Load8S(offset) |
-            Instruction::I32Load8U(offset) |
-            Instruction::I32Load16S(offset) |
-            Instruction::I32Load16U(offset) |
-            Instruction::I64Load8S(offset) |
-            Instruction::I64Load8U(offset) |
-            Instruction::I64Load16S(offset) |
-            Instruction::I64Load16U(offset) |
-            Instruction::I64Load32S(offset) |
-            Instruction::I64Load32U(offset) |
-            Instruction::I32Store(offset) |
-            Instruction::I64Store(offset) |
-            Instruction::F32Store(offset) |
-            Instruction::F64Store(offset) |
-            Instruction::I32Store8(offset) |
-            Instruction::I32Store16(offset) |
-            Instruction::I64Store8(offset) |
-            Instruction::I64Store16(offset) |
-            Instruction::I64Store32(offset) => vec![offset.into_inner() as u64],
-            Instruction::MemoryInit(data_segment) |
-            Instruction::DataDrop(data_segment) => vec![data_segment.into_inner() as u64],
-            Instruction::TableSize { table } |
-            Instruction::TableGrow { table } |
-            Instruction::TableFill { table } |
-            Instruction::TableGet { table } |
-            Instruction::TableSet { table } => vec![table.into_inner() as u64],
-            Instruction::TableCopy { dst, src } => vec![dst.into_inner() as u64, src.into_inner() as u64],
-            Instruction::TableInit { table, elem } => vec![table.into_inner() as u64, elem.into_inner() as u64],
+            Instruction::CallIndirect { table, func_type } => {
+                vec![table.into_inner() as u64, func_type.into_inner() as u64]
+            }
+            Instruction::GlobalGet(global_index) | Instruction::GlobalSet(global_index) => {
+                vec![global_index.into_inner() as u64]
+            }
+            Instruction::I32Load(offset)
+            | Instruction::I64Load(offset)
+            | Instruction::F32Load(offset)
+            | Instruction::F64Load(offset)
+            | Instruction::I32Load8S(offset)
+            | Instruction::I32Load8U(offset)
+            | Instruction::I32Load16S(offset)
+            | Instruction::I32Load16U(offset)
+            | Instruction::I64Load8S(offset)
+            | Instruction::I64Load8U(offset)
+            | Instruction::I64Load16S(offset)
+            | Instruction::I64Load16U(offset)
+            | Instruction::I64Load32S(offset)
+            | Instruction::I64Load32U(offset)
+            | Instruction::I32Store(offset)
+            | Instruction::I64Store(offset)
+            | Instruction::F32Store(offset)
+            | Instruction::F64Store(offset)
+            | Instruction::I32Store8(offset)
+            | Instruction::I32Store16(offset)
+            | Instruction::I64Store8(offset)
+            | Instruction::I64Store16(offset)
+            | Instruction::I64Store32(offset) => vec![offset.into_inner() as u64],
+            Instruction::MemoryInit(data_segment) | Instruction::DataDrop(data_segment) => {
+                vec![data_segment.into_inner() as u64]
+            }
+            Instruction::TableSize { table }
+            | Instruction::TableGrow { table }
+            | Instruction::TableFill { table }
+            | Instruction::TableGet { table }
+            | Instruction::TableSet { table } => vec![table.into_inner() as u64],
+            Instruction::TableCopy { dst, src } => {
+                vec![dst.into_inner() as u64, src.into_inner() as u64]
+            }
+            Instruction::TableInit { table, elem } => {
+                vec![table.into_inner() as u64, elem.into_inner() as u64]
+            }
             Instruction::ElemDrop(es) => vec![es.into_inner() as u64],
             Instruction::RefFunc { func_index } => vec![func_index.into_inner() as u64],
-            Instruction::Const(value) => vec![value.to_bits()],
             _ => vec![],
         };
         Some(params).filter(|v| !v.is_empty())
@@ -262,15 +269,14 @@ impl OpCode {
     pub fn drop_keep(&self) -> Option<DropKeep> {
         let drop_keep = match self.0 {
             // branch param
-            Instruction::Br(bp) |
-            Instruction::BrIfEqz(bp) |
-            Instruction::BrIfNez(bp) => Some(bp.drop_keep()),
+            Instruction::Br(bp) | Instruction::BrIfEqz(bp) | Instruction::BrIfNez(bp) => {
+                Some(bp.drop_keep())
+            }
             // drop keep
-            Instruction::Return(drop_keep) |
-            Instruction::ReturnIfNez(drop_keep) => Some(drop_keep),
+            Instruction::Return(drop_keep) | Instruction::ReturnIfNez(drop_keep) => Some(drop_keep),
             // objs
-            Instruction::ReturnCall { drop_keep, .. } |
-            Instruction::ReturnCallIndirect { drop_keep, .. } => Some(drop_keep),
+            Instruction::ReturnCall { drop_keep, .. }
+            | Instruction::ReturnCallIndirect { drop_keep, .. } => Some(drop_keep),
             // no drop keep
             _ => None,
         };

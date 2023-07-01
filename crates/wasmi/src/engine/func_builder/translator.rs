@@ -1,6 +1,6 @@
 use alloc::vec::Vec;
 
-use wasmi_core::{F32, F64, ValueType};
+use wasmi_core::{ValueType, F32, F64};
 use wasmparser::VisitOperator;
 
 use crate::{
@@ -16,25 +16,25 @@ use crate::{
             TableIdx,
         },
         config::FuelCosts,
-        DropKeep,
         func_builder::control_frame::ControlFrameKind,
+        DropKeep,
         FuncBody,
         Instr,
         RelativeDepth,
     },
-    Engine,
-    FuncType,
-    GlobalType,
     module::{
         BlockType,
         ConstExpr,
-        DEFAULT_MEMORY_INDEX,
         FuncIdx,
         FuncTypeIdx,
         GlobalIdx,
         MemoryIdx,
         ModuleResources,
+        DEFAULT_MEMORY_INDEX,
     },
+    Engine,
+    FuncType,
+    GlobalType,
     Mutability,
     Value,
 };
@@ -47,12 +47,12 @@ use super::{
         LoopControlFrame,
         UnreachableControlFrame,
     },
-    ControlFlowStack,
-    InstructionsBuilder,
     labels::LabelRef,
     locals_registry::LocalsRegistry,
-    TranslationError,
     value_stack::ValueStackHeight,
+    ControlFlowStack,
+    InstructionsBuilder,
+    TranslationError,
 };
 
 /// Reusable allocations of a [`FuncTranslator`].
@@ -123,7 +123,7 @@ impl<'parser> FuncTranslator<'parser> {
             locals: LocalsRegistry::default(),
             alloc,
         }
-            .init()
+        .init()
     }
 
     /// Returns a shared reference to the underlying [`Engine`].
@@ -283,8 +283,8 @@ impl<'parser> FuncTranslator<'parser> {
     ///
     /// Ignores the `translator` closure if the current code path is unreachable.
     fn translate_if_reachable<F>(&mut self, translator: F) -> Result<(), TranslationError>
-        where
-            F: FnOnce(&mut Self) -> Result<(), TranslationError>,
+    where
+        F: FnOnce(&mut Self) -> Result<(), TranslationError>,
     {
         if self.is_reachable() {
             translator(self)?;
@@ -365,7 +365,7 @@ impl<'parser> FuncTranslator<'parser> {
             drop_keep.drop() + len_params_locals,
             drop_keep.keep(),
         )
-            .map_err(Into::into)
+        .map_err(Into::into)
     }
 
     /// Returns the relative depth on the stack of the local variable.
@@ -516,36 +516,9 @@ impl<'parser> FuncTranslator<'parser> {
         })
     }
 
-    /// Translate a Wasm `<ty>.const` instruction.
-    ///
-    /// # Note
-    ///
-    /// This is used as the translation backend of the following Wasm instructions:
-    ///
-    /// - `i32.const`
-    /// - `i64.const`
-    /// - `f32.const`
-    /// - `f64.const`
-    #[deprecated(note = "use 32/64 bit version")]
-    fn translate_const<T>(&mut self, value: T) -> Result<(), TranslationError>
-        where
-            T: Into<Value>,
-    {
-        self.translate_if_reachable(|builder| {
-            builder.bump_fuel_consumption(builder.fuel_costs().base);
-            let value = value.into();
-            builder.stack_height.push();
-            builder
-                .alloc
-                .inst_builder
-                .push_inst(Instruction::constant(value));
-            Ok(())
-        })
-    }
-
     fn translate_const_i32<T>(&mut self, value: T) -> Result<(), TranslationError>
-        where
-            T: Into<Value>,
+    where
+        T: Into<Value>,
     {
         self.translate_if_reachable(|builder| {
             builder.bump_fuel_consumption(builder.fuel_costs().base);
@@ -560,8 +533,8 @@ impl<'parser> FuncTranslator<'parser> {
     }
 
     fn translate_const_i64<T>(&mut self, value: T) -> Result<(), TranslationError>
-        where
-            T: Into<Value>,
+    where
+        T: Into<Value>,
     {
         self.translate_if_reachable(|builder| {
             builder.bump_fuel_consumption(builder.fuel_costs().base);
