@@ -278,15 +278,6 @@ pub enum Instruction {
 }
 
 impl Instruction {
-    /// Creates a new `Const` instruction from the given value.
-    #[deprecated(note = "use 64/32 bit version")]
-    pub fn constant<C>(value: C) -> Self
-    where
-        C: Into<UntypedValue>,
-    {
-        Self::I64Const(value.into())
-    }
-
     pub fn const_i32<C>(value: C) -> Self
     where
         C: Into<UntypedValue>,
