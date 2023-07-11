@@ -5,9 +5,9 @@ use core::fmt::Display;
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct DropKeep {
     /// The amount of stack values dropped.
-    drop: u16,
+    pub drop: u16,
     /// The amount of stack values kept.
-    keep: u16,
+    pub keep: u16,
 }
 
 /// An error that may occur upon operating on [`DropKeep`].
