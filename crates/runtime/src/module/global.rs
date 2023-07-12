@@ -40,10 +40,7 @@ impl From<wasmparser::Global<'_>> for Global {
     fn from(global: wasmparser::Global<'_>) -> Self {
         let global_type = GlobalType::from_wasmparser(global.ty);
         let init_expr = ConstExpr::new(global.init_expr);
-        Self {
-            global_type,
-            init_expr,
-        }
+        Self { global_type, init_expr }
     }
 }
 

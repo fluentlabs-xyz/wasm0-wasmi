@@ -1,5 +1,6 @@
-use crate::{linker::Linker, BinaryFormat, InstrMeta, JumpDest, OpCode, WazmError, WazmResult};
 use std::{collections::BTreeMap, io::Cursor};
+use wazm_core::{BinaryFormat, InstrMeta, JumpDest, Linker, OpCode, WazmError, WazmResult};
+use wazm_wasmi::{Engine, FuncType, Module, ModuleBuilder, ModuleError};
 
 pub struct CompiledModule {
     bytecode: Vec<OpCode>,
@@ -91,5 +92,14 @@ impl CompiledModule {
             result += str.as_str();
         }
         result
+    }
+
+    pub fn to_module(&self, engine: &Engine) -> Module {
+        let mut module_builder = ModuleBuilder::new(engine);
+        let empty_type = Result::<FuncType, ModuleError>::Ok(FuncType::empty());
+        module_builder
+            .push_func_types(std::iter::once(empty_type))
+            .expect("failed to push func type");
+        module_builder.finish()
     }
 }

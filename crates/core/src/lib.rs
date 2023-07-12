@@ -50,11 +50,10 @@ mod encoding;
 mod host_call;
 mod linker;
 mod meta;
-mod module;
 mod opcode;
 mod utils;
 
-pub use self::{encoding::*, host_call::*, linker::*, meta::*, module::*, opcode::*, untyped::*, utils::*};
+pub use self::{encoding::*, host_call::*, linker::*, meta::*, opcode::*, untyped::*, utils::*};
 use std::{fmt, fmt::Display};
 
 use std::io::Cursor;

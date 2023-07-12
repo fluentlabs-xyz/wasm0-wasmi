@@ -42,7 +42,7 @@ impl Compiler {
         let engine = Engine::new(&config);
         let module = ModuleParser::new(&engine)
             .parse(wasm_binary.as_slice())
-            .map_err(|e| WazmError::TranslationError)?;
+            .map_err(|_| WazmError::TranslationError)?;
         let linker = Linker::new();
         Ok(Compiler {
             engine,

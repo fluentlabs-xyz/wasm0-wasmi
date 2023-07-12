@@ -2,7 +2,8 @@ use super::{TestDescriptor, TestError, TestProfile, TestSpan};
 use anyhow::Result;
 use std::collections::HashMap;
 use wast::token::{Id, Span};
-use wazm_core::{ValueType, WazmError, F32, F64};
+use wazm_compiler::module::CompiledModule;
+use wazm_core::{ValueType, F32, F64};
 use wazm_wasmi::{
     Config,
     Engine,
@@ -157,13 +158,13 @@ impl TestContext<'_> {
             )
         });
         let mut compiler = wazm_compiler::Compiler::new(&wasm).map_err(|e| match e {
-            WazmError::TranslationError(e) => TestError::Wasmi(e),
+            // WazmError::TranslationError(e) => TestError::Wasmi(e),
             _ => TestError::Wazm(e),
         })?;
         compiler.translate_wo_entrypoint().unwrap();
         let binary = compiler.finalize().unwrap();
         println!("{:?}", binary);
-        let module = wazm_core::Module::from_vec(&binary).unwrap();
+        let module = CompiledModule::from_vec(&binary).unwrap();
         let trace = module.trace_binary();
         println!("{}", trace);
 

@@ -1,10 +1,11 @@
 #![allow(dead_code)]
 
 pub use crate::compiler::Compiler;
-use wazm_core::CompiledModule;
+use crate::module::CompiledModule;
 
 mod compiler;
 mod drop_keep;
+pub mod module;
 mod opcode;
 
 fn wat2wasm(wat: &str) -> Vec<u8> {

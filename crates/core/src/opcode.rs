@@ -21,6 +21,8 @@ pub enum OpCode {
     BrIfNez(JumpDest),
     BrTable(Index),
     Return,
+    ReturnIfNez,
+    ReturnCall,
     ReturnCallIndirect(Index),
     Call(JumpDest),
     CallHost(Index),

@@ -4,13 +4,11 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+wazm-arena = { path = "../arena" }
 wazm-compiler = { path = "../compiler" }
 wazm-core = { path = "../core" }
-wazm-runtime = { path = "../runtime" }
-wasmi = { path = "../runtime/crates/wasmi" }
-wasmi_arena = { path = "../runtime/crates/arena" }
-wasmi_core = { path = "../runtime/crates/core" }
+wazm-wasmi = { path = "../runtime" }
 byteorder = "1.4.3"
 wat = "1.0.66"
 anyhow = "1.0.71"
-wast = "60.0.0"
+wast = "61.0.0"

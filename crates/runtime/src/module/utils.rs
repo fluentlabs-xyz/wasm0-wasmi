@@ -63,6 +63,11 @@ impl GlobalType {
 }
 
 impl FuncType {
+    pub fn empty() -> Self {
+        let empty_params: [ValueType; 0] = [ValueType::I32; 0];
+        Self::new(empty_params, empty_params)
+    }
+
     /// Creates a new [`FuncType`] from the given `wasmparser` primitive.
     ///
     /// # Dev. Note
