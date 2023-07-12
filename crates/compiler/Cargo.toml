@@ -1,0 +1,12 @@
+[package]
+name = "wazm-compiler"
+description = "WebAssembly interpreter"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+wazm-arena = { path = "../arena" }
+wazm-core = { path = "../core" }
+wazm-wasmi = { path = "../runtime" }
+byteorder = "1.4.3"
+wat = "1.0.66"

@@ -13,7 +13,7 @@ libfuzzer-sys = "0.4"
 wasm-smith = "0.11"
 
 [dependencies.wasmi]
-path = "../crates/wasmi"
+path = "../crates/runtime"
 
 # Prevent this from interfering with workspaces
 [workspace]

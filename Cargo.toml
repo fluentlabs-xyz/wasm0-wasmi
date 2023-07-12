@@ -1,11 +1,10 @@
 [workspace]
 members = [
     "crates/arena",
-    "crates/c-api",
-    "crates/cli",
+#    "crates/bin",
+    "crates/compiler",
     "crates/core",
-    "crates/wasmi",
-    "crates/wasi",
+    "crates/runtime",
 ]
 exclude = []
 resolver = "2"
