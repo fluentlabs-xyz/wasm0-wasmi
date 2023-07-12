@@ -155,3 +155,50 @@ fn function_with_local_variables() {
     let json_body = store.tracer.to_json();
     println!("{:?}", json_body);
 }
+
+
+#[test]
+fn function_with_call() {
+    let wasm = wat2wasm(
+        r#"
+(module
+  (type (;0;) (func))
+  (type (;1;) (func (param i32 i32 i32 i32 i32 i32 i32 i32)))
+  (type (;2;) (func (param i32 i32)))
+  (import "env" "_evm_call" (func (;0;) (type 1)))
+  (import "env" "_evm_return" (func (;1;) (type 2)))
+  (func (;2;) (type 0)
+    i32.const 0
+    i32.const 0
+    i32.const 32
+    i32.const 64
+    i32.const 320
+    i32.const 0
+    i32.const 32
+    i32.const 64
+    call 0
+    i32.const 0
+    i32.const 0
+    i32.const 32
+    i32.const 64
+    i32.const 320
+    i32.const 0
+    i32.const 32
+    i32.const 64
+    call 0
+    i32.const 0
+    i32.const 0
+    call 1)
+  (memory (;0;) 1)
+  (export "main" (func 2))
+  (export "memory" (memory 0))
+  (data (;0;) (i32.const 0) "\00\00\00\00\00\00\00\00\00\00\00\00\ff\ff\ff\ff\ff\ff\ff\ff\ff\ff\ff\ff\ff\ff\ff\ff\ff\ff\ff\ff\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\0d\e0\b6\b3\a7d\00\00\00"))
+    "#,
+    );
+    let (mut store, func) = default_test_setup(&wasm);
+    let func = func.typed::<(), ()>(&store).unwrap();
+    assert_success(func.call(&mut store, ()));
+    println!("{:?}", store.tracer);
+    let json_body = store.tracer.to_json();
+    println!("{:?}", json_body);
+}
