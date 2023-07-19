@@ -1,7 +1,7 @@
 use alloc::vec::Vec;
 
 use wasmparser::VisitOperator;
-use wazm_core::{ValueType, F32, F64};
+use wazm_core::{Index, ValueType, F32, F64};
 
 use crate::{
     engine::{
@@ -307,7 +307,7 @@ impl<'parser> FuncTranslator<'parser> {
             only {height_diff} values available on the frame",
         );
         let drop = height_diff - keep;
-        DropKeep::new(drop as usize, keep as usize).map_err(Into::into)
+        Ok(DropKeep::new(drop, keep))
     }
 
     /// Returns the maximum control stack depth at the current position in the code.
@@ -333,13 +333,12 @@ impl<'parser> FuncTranslator<'parser> {
         );
         let max_depth = self.max_depth();
         let drop_keep = self.compute_drop_keep(max_depth)?;
-        let len_params_locals = self.locals.len_registered() as usize;
-        DropKeep::new(
+        let len_params_locals = self.locals.len_registered();
+        Ok(DropKeep::new(
             // Drop all local variables and parameters upon exit.
             drop_keep.drop() + len_params_locals,
             drop_keep.keep(),
-        )
-        .map_err(Into::into)
+        ))
     }
 
     /// Returns the relative depth on the stack of the local variable.
@@ -404,7 +403,7 @@ impl<'parser> FuncTranslator<'parser> {
             if let Some(func_index) = init_expr.funcref() {
                 // We can optimize `global.get` to the equivalent `ref.func x` instruction.
                 let func_index = bytecode::FuncIdx::from(func_index.into_u32());
-                return Some(Instruction::RefFunc { func_index });
+                return Some(Instruction::RefFunc(func_index));
             }
         }
         None
@@ -699,7 +698,7 @@ impl<'parser> FuncTranslator<'parser> {
         );
         let len_params_locals = self.locals.len_registered();
         let drop = height_diff - keep + len_params_locals;
-        DropKeep::new(drop as usize, keep as usize).map_err(Into::into)
+        Ok(DropKeep::new(drop, keep))
     }
 }
 
@@ -1039,9 +1038,10 @@ impl<'a> VisitOperator<'a> for FuncTranslator<'a> {
             // We include the default target in `len_branches`.
             let len_branches = builder.alloc.br_table_branches.len();
             let default_branch = compute_instr(builder, len_branches, default, &mut max_drop_keep_fuel)?;
-            builder.alloc.inst_builder.push_inst(Instruction::BrTable {
-                len_targets: len_branches + 1,
-            });
+            builder
+                .alloc
+                .inst_builder
+                .push_inst(Instruction::BrTable(Index::from(len_branches as u32 + 1)));
             for branch in builder.alloc.br_table_branches.drain(..) {
                 builder.alloc.inst_builder.push_inst(branch);
             }
@@ -1073,7 +1073,7 @@ impl<'a> VisitOperator<'a> for FuncTranslator<'a> {
             builder
                 .alloc
                 .inst_builder
-                .push_inst(Instruction::ReturnCall { drop_keep, func });
+                .push_inst(Instruction::ReturnCall(func, drop_keep));
             builder.reachable = false;
             Ok(())
         })
@@ -1088,11 +1088,10 @@ impl<'a> VisitOperator<'a> for FuncTranslator<'a> {
             let drop_keep = builder.drop_keep_return_call(&func_type)?;
             builder.bump_fuel_consumption(builder.fuel_costs().call);
             builder.bump_fuel_consumption(builder.fuel_costs().fuel_for_drop_keep(drop_keep));
-            builder.alloc.inst_builder.push_inst(Instruction::ReturnCallIndirect {
-                drop_keep,
-                table,
-                func_type: signature,
-            });
+            builder
+                .alloc
+                .inst_builder
+                .push_inst(Instruction::ReturnCallIndirect(table, drop_keep));
             builder.reachable = false;
             Ok(())
         })
@@ -1122,10 +1121,7 @@ impl<'a> VisitOperator<'a> for FuncTranslator<'a> {
             let table = TableIdx::from(table_index);
             builder.stack_height.pop1();
             builder.adjust_value_stack_for_call(&builder.func_type_at(func_type));
-            builder
-                .alloc
-                .inst_builder
-                .push_inst(Instruction::CallIndirect { table, func_type });
+            builder.alloc.inst_builder.push_inst(Instruction::CallIndirect(table));
             Ok(())
         })
     }
@@ -1173,10 +1169,7 @@ impl<'a> VisitOperator<'a> for FuncTranslator<'a> {
         self.translate_if_reachable(|builder| {
             builder.bump_fuel_consumption(builder.fuel_costs().base);
             let func_index = bytecode::FuncIdx::from(func_index);
-            builder
-                .alloc
-                .inst_builder
-                .push_inst(Instruction::RefFunc { func_index });
+            builder.alloc.inst_builder.push_inst(Instruction::RefFunc(func_index));
             builder.stack_height.push();
             Ok(())
         })
@@ -1411,7 +1404,7 @@ impl<'a> VisitOperator<'a> for FuncTranslator<'a> {
             builder.bump_fuel_consumption(builder.fuel_costs().entity);
             let table = TableIdx::from(table_index);
             builder.stack_height.push();
-            builder.alloc.inst_builder.push_inst(Instruction::TableSize { table });
+            builder.alloc.inst_builder.push_inst(Instruction::TableSize(table));
             Ok(())
         })
     }
@@ -1421,7 +1414,7 @@ impl<'a> VisitOperator<'a> for FuncTranslator<'a> {
             builder.bump_fuel_consumption(builder.fuel_costs().entity);
             let table = TableIdx::from(table_index);
             builder.stack_height.pop1();
-            builder.alloc.inst_builder.push_inst(Instruction::TableGrow { table });
+            builder.alloc.inst_builder.push_inst(Instruction::TableGrow(table));
             Ok(())
         })
     }
@@ -1445,7 +1438,7 @@ impl<'a> VisitOperator<'a> for FuncTranslator<'a> {
             builder.bump_fuel_consumption(builder.fuel_costs().entity);
             let table = TableIdx::from(table_index);
             builder.stack_height.pop3();
-            builder.alloc.inst_builder.push_inst(Instruction::TableFill { table });
+            builder.alloc.inst_builder.push_inst(Instruction::TableFill(table));
             Ok(())
         })
     }
@@ -1454,7 +1447,7 @@ impl<'a> VisitOperator<'a> for FuncTranslator<'a> {
         self.translate_if_reachable(|builder| {
             builder.bump_fuel_consumption(builder.fuel_costs().entity);
             let table = TableIdx::from(table_index);
-            builder.alloc.inst_builder.push_inst(Instruction::TableGet { table });
+            builder.alloc.inst_builder.push_inst(Instruction::TableGet(table));
             Ok(())
         })
     }
@@ -1464,7 +1457,7 @@ impl<'a> VisitOperator<'a> for FuncTranslator<'a> {
             builder.bump_fuel_consumption(builder.fuel_costs().entity);
             let table = TableIdx::from(table_index);
             builder.stack_height.pop2();
-            builder.alloc.inst_builder.push_inst(Instruction::TableSet { table });
+            builder.alloc.inst_builder.push_inst(Instruction::TableSet(table));
             Ok(())
         })
     }

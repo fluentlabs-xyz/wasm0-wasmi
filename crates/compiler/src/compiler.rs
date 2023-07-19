@@ -4,6 +4,8 @@ use std::{collections::BTreeMap, ops::Deref};
 use wazm_core::{
     resolve_host_call,
     BinaryFormat,
+    BinaryFormatWriter,
+    DropKeep,
     InstructionSet,
     JumpDest,
     Linker,
@@ -112,7 +114,7 @@ impl Compiler {
                     (data_offset, memory.bytes())
                 }
                 DataSegmentKind::Passive => {
-                    return Err(WazmError::NotSupportedMemory("passive mode"));
+                    return Err(WazmError::NotSupportedMemory("passive mode is not supported"));
                 }
             };
             let mut offset = offset.to_bits() as u32;
@@ -193,40 +195,38 @@ impl Compiler {
                 opcodes.extend(drop_keep_opcodes);
                 opcodes.op_br(branch_params.offset().into_i32());
             }
-            WI::BrTable { len_targets } => {
-                opcodes.op_br_table(len_targets as u32);
+            WI::BrTable(len_targets) => {
+                opcodes.op_br_table(len_targets.into_inner());
             }
             WI::Return(drop_keep) => {
                 // lets keep return offset on the stack
                 if drop_keep.drop() > 0 || drop_keep.keep() > 0 {
                     let drop_keep_opcodes = drop_keep.translate_to_vec()?;
                     opcodes.extend(drop_keep_opcodes);
-                    opcodes.op_return();
+                    opcodes.op_return(DropKeep::none());
                 } else {
-                    opcodes.op_return();
+                    opcodes.op_return(DropKeep::none());
                 }
             }
             WI::ReturnIfNez(drop_keep) => {
                 let drop_keep_opcodes = drop_keep.translate_to_vec()?;
                 opcodes.op_br_if_eqz(1 + drop_keep_opcodes.len() as i32);
                 opcodes.extend(drop_keep_opcodes);
-                opcodes.op_return();
+                opcodes.op_return(DropKeep::none());
             }
-            WI::ReturnCall { func, drop_keep } => {
+            WI::ReturnCall(func, drop_keep) => {
                 let drop_keep_opcodes = drop_keep.translate_to_vec()?;
                 opcodes.extend(drop_keep_opcodes);
                 return self.translate_call(&instr, func.into_inner());
             }
-            WI::ReturnCallIndirect {
-                mut drop_keep, table, ..
-            } => {
+            WI::ReturnCallIndirect(table, mut drop_keep) => {
                 drop_keep.keep += 1;
                 let drop_keep_opcodes = drop_keep.translate_to_vec()?;
                 opcodes.extend(drop_keep_opcodes);
-                opcodes.op_return_call_indirect(table.into_inner());
+                opcodes.op_return_call_indirect(table.into_inner(), DropKeep::none());
             }
             WI::Call(func_idx) => return self.translate_call(&instr, func_idx.into_inner()),
-            WI::CallIndirect { table, .. } => {
+            WI::CallIndirect(table) => {
                 opcodes.op_call_indirect(table.into_inner());
             }
             _ => unreachable!("don't route here with this opcode: {:?}", instr),
@@ -284,7 +284,7 @@ impl Compiler {
             _ => return Err(WazmError::NotSupportedImport),
         };
         let import_code = resolve_host_call(import_name.module.deref(), import_name.field.deref())?;
-        self.code_section.push(OpCode::CallHost(import_code));
+        self.code_section.push(OpCode::Call(import_code));
         Ok(())
     }
 
@@ -294,8 +294,11 @@ impl Compiler {
         let mut states: Vec<(u32, u32, Vec<u8>)> = Vec::new();
         let mut buffer_offset = 0u32;
         for code in bytecode.0.iter() {
-            let mut buffer = Vec::new();
-            code.write_binary(&mut buffer)?;
+            let mut buffer: [u8; 100] = [0; 100];
+            let mut binary_writer = BinaryFormatWriter::new(&mut buffer[..]);
+            code.write_binary(&mut binary_writer)
+                .map_err(|e| WazmError::BinaryFormat(e))?;
+            let buffer = binary_writer.to_vec();
             let buffer_size = buffer.len() as u32;
             states.push((buffer_offset, buffer_size, buffer));
             buffer_offset += buffer_size;
@@ -312,7 +315,8 @@ impl Compiler {
                 let code = code.rewrite_jump_offset(JumpDest::from(target_state.0 as i32));
                 let current_state = states.get_mut(i).ok_or(WazmError::OutOfBuffer)?;
                 current_state.2.clear();
-                code.write_binary(&mut current_state.2)?;
+                code.write_binary_to_vec(&mut current_state.2)
+                    .map_err(|e| WazmError::BinaryFormat(e))?;
             }
         }
 
@@ -321,77 +325,5 @@ impl Compiler {
             res
         });
         Ok(res)
-
-        // #[derive(Default, Debug)]
-        // struct State {
-        //     i: usize,
-        //     buffer: Vec<u8>,
-        //     size: usize,
-        //     jumps: Option<usize>,
-        // }
-        //
-        // let mut states = Vec::<State>::with_capacity(bytecode.len() as usize);
-        // states.resize_with(bytecode.len() as usize, || State::default());
-
-        // for (i, instr) in bytecode.0.iter().enumerate() {
-        // let state = states.get_mut(i).unwrap();
-        // state.i = i;
-        // let mut buf = Vec::new();
-        // instr.write_binary(&mut buf)?;
-        // state.size = buf.len();
-        // state.buffer = buf;
-        // if let Some(jump_offset) = instr.get_jump_offset() {
-        //     let jump_label = if let Some(fn_index) = self.call_mapping.get(&(i as u32)) {
-        //         *self.function_mapping.get(fn_index).ok_or(WazmError::MissingFunction)? as i32
-        //     } else {
-        //         jump_offset.0 + i as i32
-        //     } as usize;
-        //     state.jumps.get_or_insert_with(|| jump_label);
-        //     states
-        //         .get_mut(jump_label)
-        //         .ok_or(WazmError::InternalError("jump overflow inside code section"))?;
-        // }
-        // }
-
-        // let mut latest_good_state = 0;
-        // let target_state = states.len();
-        //
-        // let mut check_state = |from_offset: usize, to_offset: usize| -> Result<usize, WazmError>
-        // {     for i in from_offset..to_offset {
-        //         let jumps = states[i].jumps;
-        //         if let Some(jumps) = jumps {
-        //             // calc jump dest size
-        //             let prefix_size: usize = (0..jumps).map(|i| states[i].size).sum();
-        //             // check is jump dest changes instruction size
-        //             let new_opcode = bytecode.0[i].rewrite_jump_offset(JumpDest::from(prefix_size
-        // as i32));             let new_buf = {
-        //                 let mut buf = Vec::new();
-        //                 new_opcode.write_binary(&mut buf)?;
-        //                 buf
-        //             };
-        //             let is_ok = new_buf.len() == states[i].size;
-        //             if new_buf.cmp(&states[i].buffer).is_ne() {
-        //                 let state = states.get_mut(i).unwrap();
-        //                 state.size = new_buf.len();
-        //                 state.buffer = new_buf;
-        //                 // if its not ok then start over to re-check previous offsets
-        //                 if !is_ok {
-        //                     return Ok(from_offset);
-        //                 }
-        //             }
-        //         }
-        //     }
-        //     Ok(to_offset)
-        // };
-        //
-        // while latest_good_state < target_state {
-        //     latest_good_state = check_state(latest_good_state, target_state)?;
-        // }
-
-        // let res = states.iter().fold(Vec::new(), |mut res, state| {
-        //     res.extend(&state.buffer);
-        //     res
-        // });
-        // Ok(res)
     }
 }

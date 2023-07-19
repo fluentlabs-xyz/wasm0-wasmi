@@ -2,7 +2,7 @@ use super::*;
 use crate::engine::DropKeep;
 
 fn drop_keep(drop: usize, keep: usize) -> DropKeep {
-    DropKeep::new(drop, keep).unwrap()
+    DropKeep::new(drop as u32, keep as u32)
 }
 
 impl FromIterator<UntypedValue> for ValueStack {
@@ -48,10 +48,7 @@ fn drop_keep_works() {
     }
 
     let test_inputs = [1, 2, 3, 4, 5, 6];
-    let stack = test_inputs
-        .into_iter()
-        .map(UntypedValue::from)
-        .collect::<ValueStack>();
+    let stack = test_inputs.into_iter().map(UntypedValue::from).collect::<ValueStack>();
 
     // Drop is always 0 but keep varies:
     for keep in 0..stack.len() {

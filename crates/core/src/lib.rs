@@ -46,17 +46,16 @@ pub use self::{
     },
 };
 
-mod encoding;
+mod binary_format;
 mod host_call;
 mod linker;
 mod meta;
 mod opcode;
 mod utils;
 
-pub use self::{encoding::*, host_call::*, linker::*, meta::*, opcode::*, untyped::*, utils::*};
+pub use self::{binary_format::*, host_call::*, linker::*, meta::*, opcode::*, untyped::*, utils::*};
+use crate::binary_format::BinaryFormatError;
 use std::{fmt, fmt::Display};
-
-use std::io::Cursor;
 
 #[derive(Debug)]
 pub enum WazmError {
@@ -74,6 +73,7 @@ pub enum WazmError {
     InternalError(&'static str),
     MemoryOverflow,
     EmptyBytecode,
+    BinaryFormat(BinaryFormatError),
 }
 
 impl Display for WazmError {
@@ -93,18 +93,12 @@ impl Display for WazmError {
             WazmError::InternalError(err) => write!(f, "internal error ({})", err),
             WazmError::MemoryOverflow => write!(f, "memory overflow"),
             WazmError::EmptyBytecode => write!(f, "empty bytecode"),
+            _ => write!(f, "unknown error"),
         }
     }
 }
 
 pub type WazmResult<T> = Result<T, WazmError>;
-
-pub trait BinaryFormat<'a> {
-    type SelfType;
-
-    fn write_binary(&self, sink: &mut Vec<u8>) -> WazmResult<()>;
-    fn read_binary(sink: &mut Cursor<&'a [u8]>) -> WazmResult<Self::SelfType>;
-}
 
 pub const MAX_MEMORY_PAGES: u32 = 512;
 pub const MAX_MEMORY_SIZE: u32 = 512 * 0x10000;

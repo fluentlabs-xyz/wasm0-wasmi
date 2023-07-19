@@ -134,11 +134,10 @@ impl ValueStackPtr {
     ///
     /// # Note
     ///
-    /// - This operation heavily relies on the prior validation of
-    ///   the executed WebAssembly bytecode for correctness.
-    /// - Especially the stack-depth analysis during compilation with
-    ///   a manual stack extension before function call prevents this
-    ///   procedure from panicking.
+    /// - This operation heavily relies on the prior validation of the executed WebAssembly bytecode
+    ///   for correctness.
+    /// - Especially the stack-depth analysis during compilation with a manual stack extension
+    ///   before function call prevents this procedure from panicking.
     ///
     /// [`ValueStack`]: super::ValueStack
     #[inline]
@@ -153,11 +152,10 @@ impl ValueStackPtr {
     ///
     /// # Note
     ///
-    /// - This operation heavily relies on the prior validation of
-    ///   the executed WebAssembly bytecode for correctness.
-    /// - Especially the stack-depth analysis during compilation with
-    ///   a manual stack extension before function call prevents this
-    ///   procedure from panicking.
+    /// - This operation heavily relies on the prior validation of the executed WebAssembly bytecode
+    ///   for correctness.
+    /// - Especially the stack-depth analysis during compilation with a manual stack extension
+    ///   before function call prevents this procedure from panicking.
     ///
     /// [`ValueStack`]: super::ValueStack
     #[inline]
@@ -316,13 +314,13 @@ impl ValueStackPtr {
     /// Note that `k + d` cannot be greater than the stack length.
     pub fn drop_keep(&mut self, drop_keep: DropKeep) {
         fn drop_keep_impl(this: ValueStackPtr, drop_keep: DropKeep) {
-            let keep = drop_keep.keep();
+            let keep = drop_keep.keep() as usize;
             if keep == 0 {
                 // Case: no values need to be kept.
                 return;
             }
             let src = this.into_sub(keep);
-            let dst = this.into_sub(keep + drop_keep.drop());
+            let dst = this.into_sub(keep + drop_keep.drop() as usize);
             if keep == 1 {
                 // Case: only one value needs to be kept.
                 dst.set(src.get());
@@ -340,6 +338,6 @@ impl ValueStackPtr {
             return;
         }
         drop_keep_impl(*self, drop_keep);
-        self.dec_by(drop);
+        self.dec_by(drop as usize);
     }
 }

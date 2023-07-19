@@ -8,7 +8,7 @@ use crate::engine::{
 };
 use alloc::vec::Vec;
 use std::cell::RefCell;
-use crate::engine::bytecode::InstrMeta;
+use wazm_core::InstrMeta;
 
 /// A reference to an instruction of the partially
 /// constructed function body of the [`InstructionsBuilder`].
@@ -26,9 +26,9 @@ impl Instr {
     ///
     /// If the `value` exceeds limitations for [`Instr`].
     pub fn from_usize(value: usize) -> Self {
-        let value = value.try_into().unwrap_or_else(|error| {
-            panic!("invalid index {value} for instruction reference: {error}")
-        });
+        let value = value
+            .try_into()
+            .unwrap_or_else(|error| panic!("invalid index {value} for instruction reference: {error}"));
         Self(value)
     }
 
@@ -167,12 +167,7 @@ impl InstructionsBuilder {
     /// aware of the Wasm function existence. Returns a `FuncBody`
     /// reference that allows to retrieve the instructions.
     #[must_use]
-    pub fn finish(
-        &mut self,
-        engine: &Engine,
-        len_locals: usize,
-        max_stack_height: usize,
-    ) -> FuncBody {
+    pub fn finish(&mut self, engine: &Engine, len_locals: usize, max_stack_height: usize) -> FuncBody {
         self.update_branch_offsets();
         let metas = self.metas.replace(Vec::new());
         assert_eq!(self.insts.len(), metas.len());
@@ -200,21 +195,5 @@ impl InstructionsBuilder {
     /// [`ConsumeFuel`]: enum.Instruction.html#variant.ConsumeFuel
     pub fn bump_fuel_consumption(&mut self, instr: Instr, delta: u64) {
         self.insts[instr.into_usize()].bump_fuel_consumption(delta)
-    }
-}
-
-impl Instruction {
-    /// Updates the [`BranchOffset`] for the branch [`Instruction].
-    ///
-    /// # Panics
-    ///
-    /// If `self` is not a branch [`Instruction`].
-    pub fn update_branch_offset(&mut self, offset: BranchOffset) {
-        match self {
-            Instruction::Br(params)
-            | Instruction::BrIfEqz(params)
-            | Instruction::BrIfNez(params) => params.init(offset),
-            _ => panic!("tried to update branch offset of a non-branch instruction: {self:?}"),
-        }
     }
 }

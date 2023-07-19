@@ -1,6 +1,6 @@
 use strum_macros::EnumIter;
 
-use crate::{Fuel, Index, JumpDest, Offset, UntypedValue};
+use crate::{BranchParams, DropKeep, Fuel, Index, JumpDest, Offset, UntypedValue};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, EnumIter)]
 pub enum OpCode {
@@ -16,16 +16,15 @@ pub enum OpCode {
     LocalTee(Index),
 
     // control float opcode family
-    Br(JumpDest),
-    BrIfEqz(JumpDest),
-    BrIfNez(JumpDest),
+    Br(BranchParams),
+    BrIfEqz(BranchParams),
+    BrIfNez(BranchParams),
     BrTable(Index),
-    Return,
-    ReturnIfNez,
-    ReturnCall,
-    ReturnCallIndirect(Index),
-    Call(JumpDest),
-    CallHost(Index),
+    Return(DropKeep),
+    ReturnIfNez(DropKeep),
+    ReturnCall(Index, DropKeep),
+    ReturnCallIndirect(Index, DropKeep),
+    Call(Index),
     CallIndirect(Index),
 
     // global opcode family
@@ -58,22 +57,21 @@ pub enum OpCode {
     I64Store32(Offset),
 
     // data memory opcodes (?)
-    // MemorySize,
-    // MemoryGrow,
-    // MemoryFill,
-    // MemoryCopy,
-    // DataDrop(Index),
-    // TableSize(Index),
-    // TableGrow(Index),
-    // TableFill(Index),
-    // TableGet(Index),
-    // TableSet(Index),
-    // TableCopy { dst: Index, src: Index },
-    // TableInit { table: Index, elem: Index },
-    // ElemDrop(Index),
-    // RefFunc {
-    //     func_index: Index,
-    // },
+    MemorySize,
+    MemoryGrow,
+    MemoryFill,
+    MemoryCopy,
+    MemoryInit(Index),
+    DataDrop(Index),
+    TableSize(Index),
+    TableGrow(Index),
+    TableFill(Index),
+    TableGet(Index),
+    TableSet(Index),
+    TableCopy { dst: Index, src: Index },
+    TableInit { table: Index, elem: Index },
+    ElemDrop(Index),
+    RefFunc(Index),
 
     // i32/i64 opcode family
     I64Const(UntypedValue),
@@ -216,52 +214,117 @@ pub enum OpCode {
 }
 
 impl OpCode {
+    pub fn const_i32<C>(value: C) -> Self
+    where
+        C: Into<UntypedValue>,
+    {
+        Self::I32Const(value.into())
+    }
+
+    pub fn const_i64<C>(value: C) -> Self
+    where
+        C: Into<UntypedValue>,
+    {
+        Self::I64Const(value.into())
+    }
+
+    /// Creates a new `local.get` instruction from the given local depth.
+    pub fn local_get(local_depth: usize) -> Self {
+        Self::LocalGet(Index::from(local_depth as u32))
+    }
+
+    /// Creates a new `local.set` instruction from the given local depth.
+    pub fn local_set(local_depth: usize) -> Self {
+        Self::LocalSet(Index::from(local_depth as u32))
+    }
+
+    /// Creates a new `local.tee` instruction from the given local depth.
+    pub fn local_tee(local_depth: usize) -> Self {
+        Self::LocalTee(Index::from(local_depth as u32))
+    }
+
+    /// Convenience method to create a new `ConsumeFuel` instruction.
+    pub fn consume_fuel(amount: u64) -> Self {
+        Self::ConsumeFuel(Fuel::from(amount))
+    }
+
     pub fn get_jump_offset(&self) -> Option<JumpDest> {
         match self {
-            OpCode::Br(offset) => Some(*offset),
-            OpCode::BrIfEqz(offset) => Some(*offset),
-            OpCode::BrIfNez(offset) => Some(*offset),
-            OpCode::Call(offset) => Some(*offset),
+            OpCode::Br(offset) => Some(offset.offset),
+            OpCode::BrIfEqz(offset) => Some(offset.offset),
+            OpCode::BrIfNez(offset) => Some(offset.offset),
             _ => None,
         }
     }
 
+    pub fn update_branch_offset(&mut self, offset: JumpDest) {
+        *self = self.rewrite_jump_offset(offset);
+    }
+
     pub fn rewrite_jump_offset(&self, new_offset: JumpDest) -> OpCode {
         match self {
-            OpCode::Br(_) => OpCode::Br(new_offset),
-            OpCode::BrIfEqz(_) => OpCode::BrIfEqz(new_offset),
-            OpCode::BrIfNez(_) => OpCode::BrIfNez(new_offset),
-            OpCode::Call(_) => OpCode::Call(new_offset),
+            OpCode::Br(mut branch_params) => {
+                branch_params.offset = new_offset;
+                OpCode::Br(branch_params)
+            }
+            OpCode::BrIfEqz(mut branch_params) => {
+                branch_params.offset = new_offset;
+                OpCode::BrIfEqz(branch_params)
+            }
+            OpCode::BrIfNez(mut branch_params) => {
+                branch_params.offset = new_offset;
+                OpCode::BrIfNez(branch_params)
+            }
             _ => unreachable!("branch offset override is not supported for opcode: {:?}", self),
         }
     }
 
-    pub fn add_offset(&self, offset_diff: i32) -> OpCode {
+    pub fn add_offset(&self, offset_diff: u32) -> OpCode {
         match *self {
-            OpCode::I32Load(offset) => OpCode::I32Load(offset + offset_diff),
-            OpCode::I64Load(offset) => OpCode::I64Load(offset + offset_diff),
-            OpCode::F32Load(offset) => OpCode::F32Load(offset + offset_diff),
-            OpCode::F64Load(offset) => OpCode::F64Load(offset + offset_diff),
-            OpCode::I32Load8S(offset) => OpCode::I32Load8S(offset + offset_diff),
-            OpCode::I32Load8U(offset) => OpCode::I32Load8U(offset + offset_diff),
-            OpCode::I32Load16S(offset) => OpCode::I32Load16S(offset + offset_diff),
-            OpCode::I32Load16U(offset) => OpCode::I32Load16U(offset + offset_diff),
-            OpCode::I64Load8S(offset) => OpCode::I64Load8S(offset + offset_diff),
-            OpCode::I64Load8U(offset) => OpCode::I64Load8U(offset + offset_diff),
-            OpCode::I64Load16S(offset) => OpCode::I64Load16S(offset + offset_diff),
-            OpCode::I64Load16U(offset) => OpCode::I64Load16U(offset + offset_diff),
-            OpCode::I64Load32S(offset) => OpCode::I64Load32S(offset + offset_diff),
-            OpCode::I64Load32U(offset) => OpCode::I64Load32U(offset + offset_diff),
-            OpCode::I32Store(offset) => OpCode::I32Store(offset + offset_diff),
-            OpCode::I64Store(offset) => OpCode::I64Store(offset + offset_diff),
-            OpCode::F32Store(offset) => OpCode::F32Store(offset + offset_diff),
-            OpCode::F64Store(offset) => OpCode::F64Store(offset + offset_diff),
-            OpCode::I32Store8(offset) => OpCode::I32Store8(offset + offset_diff),
-            OpCode::I32Store16(offset) => OpCode::I32Store16(offset + offset_diff),
-            OpCode::I64Store8(offset) => OpCode::I64Store8(offset + offset_diff),
-            OpCode::I64Store16(offset) => OpCode::I64Store16(offset + offset_diff),
-            OpCode::I64Store32(offset) => OpCode::I64Store32(offset + offset_diff),
+            OpCode::I32Load(offset) => OpCode::I32Load(Offset::from(offset.0 + offset_diff)),
+            OpCode::I64Load(offset) => OpCode::I64Load(Offset::from(offset.0 + offset_diff)),
+            OpCode::F32Load(offset) => OpCode::F32Load(Offset::from(offset.0 + offset_diff)),
+            OpCode::F64Load(offset) => OpCode::F64Load(Offset::from(offset.0 + offset_diff)),
+            OpCode::I32Load8S(offset) => OpCode::I32Load8S(Offset::from(offset.0 + offset_diff)),
+            OpCode::I32Load8U(offset) => OpCode::I32Load8U(Offset::from(offset.0 + offset_diff)),
+            OpCode::I32Load16S(offset) => OpCode::I32Load16S(Offset::from(offset.0 + offset_diff)),
+            OpCode::I32Load16U(offset) => OpCode::I32Load16U(Offset::from(offset.0 + offset_diff)),
+            OpCode::I64Load8S(offset) => OpCode::I64Load8S(Offset::from(offset.0 + offset_diff)),
+            OpCode::I64Load8U(offset) => OpCode::I64Load8U(Offset::from(offset.0 + offset_diff)),
+            OpCode::I64Load16S(offset) => OpCode::I64Load16S(Offset::from(offset.0 + offset_diff)),
+            OpCode::I64Load16U(offset) => OpCode::I64Load16U(Offset::from(offset.0 + offset_diff)),
+            OpCode::I64Load32S(offset) => OpCode::I64Load32S(Offset::from(offset.0 + offset_diff)),
+            OpCode::I64Load32U(offset) => OpCode::I64Load32U(Offset::from(offset.0 + offset_diff)),
+            OpCode::I32Store(offset) => OpCode::I32Store(Offset::from(offset.0 + offset_diff)),
+            OpCode::I64Store(offset) => OpCode::I64Store(Offset::from(offset.0 + offset_diff)),
+            OpCode::F32Store(offset) => OpCode::F32Store(Offset::from(offset.0 + offset_diff)),
+            OpCode::F64Store(offset) => OpCode::F64Store(Offset::from(offset.0 + offset_diff)),
+            OpCode::I32Store8(offset) => OpCode::I32Store8(Offset::from(offset.0 + offset_diff)),
+            OpCode::I32Store16(offset) => OpCode::I32Store16(Offset::from(offset.0 + offset_diff)),
+            OpCode::I64Store8(offset) => OpCode::I64Store8(Offset::from(offset.0 + offset_diff)),
+            OpCode::I64Store16(offset) => OpCode::I64Store16(Offset::from(offset.0 + offset_diff)),
+            OpCode::I64Store32(offset) => OpCode::I64Store32(Offset::from(offset.0 + offset_diff)),
             _ => unreachable!("offset override is not supported for opcode: {:?}", self),
+        }
+    }
+
+    /// Increases the fuel consumption of the [`ConsumeFuel`] instruction by `delta`.
+    ///
+    /// # Panics
+    ///
+    /// - If `self` is not a [`ConsumeFuel`] instruction.
+    /// - If the new fuel consumption overflows the internal `u64` value.
+    ///
+    /// [`ConsumeFuel`]: Instruction::ConsumeFuel
+    pub fn bump_fuel_consumption(&mut self, delta: u64) {
+        match self {
+            Self::ConsumeFuel(fuel) => {
+                let amount = fuel.0;
+                fuel.0 = amount
+                    .checked_add(delta)
+                    .unwrap_or_else(|| panic!("overflowed fuel consumption. current = {amount}, delta = {delta}",))
+            }
+            instr => panic!("expected Instruction::ConsumeFuel but found: {instr:?}"),
         }
     }
 }

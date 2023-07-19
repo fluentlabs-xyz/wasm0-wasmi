@@ -141,7 +141,7 @@ impl LabelRegistry {
     /// for deferred label resolution.
     pub fn try_resolve_label(&mut self, label: LabelRef, user: Instr) -> BranchOffset {
         match *self.get_label(label) {
-            Label::Pinned(target) => BranchOffset::init(user, target),
+            Label::Pinned(target) => BranchOffset::init(user.into_u32(), target.into_u32()),
             Label::Unpinned => {
                 self.users.push(LabelUser::new(label, user));
                 BranchOffset::uninit()
@@ -197,7 +197,7 @@ impl<'a> Iterator for ResolvedUserIter<'a> {
             .registry
             .resolve_label(next.label)
             .unwrap_or_else(|err| panic!("failed to resolve user: {err}"));
-        let offset = BranchOffset::init(src, dst);
+        let offset = BranchOffset::init(src.into_u32(), dst.into_u32());
         Some((src, offset))
     }
 }

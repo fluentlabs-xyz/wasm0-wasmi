@@ -1,0 +1,12 @@
+pub type Instruction = wazm_core::OpCode;
+pub type DropKeep = wazm_core::DropKeep;
+pub type FuncIdx = wazm_core::Index;
+pub type TableIdx = wazm_core::Index;
+pub type SignatureIdx = wazm_core::Index;
+pub type LocalDepth = wazm_core::Index;
+pub type GlobalIdx = wazm_core::Index;
+pub type DataSegmentIdx = wazm_core::Index;
+pub type ElementSegmentIdx = wazm_core::Index;
+pub type Offset = wazm_core::Offset;
+pub type BranchOffset = wazm_core::JumpDest;
+pub type BranchParams = wazm_core::BranchParams;

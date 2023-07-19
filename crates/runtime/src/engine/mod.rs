@@ -6,10 +6,10 @@ use core::sync::atomic::{AtomicU32, Ordering};
 use spin::{Mutex, RwLock};
 
 use wazm_arena::{ArenaIndex, GuardedEntity};
+use wazm_core::InstrMeta;
 
 use crate::{
     core::{Trap, TrapCode},
-    engine::bytecode::InstrMeta,
     func::FuncEntity,
     AsContext,
     AsContextMut,
@@ -42,7 +42,6 @@ pub mod executor;
 mod func_args;
 mod func_builder;
 mod func_types;
-pub mod opcode;
 mod resumable;
 pub mod stack;
 pub mod tracer;

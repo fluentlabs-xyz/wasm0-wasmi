@@ -1,33 +1,13 @@
 use crate::{
     value::{LoadInto, StoreFrom},
-    ArithmeticOps, BinaryFormat, ExtendInto, Float, Integer, LittleEndianConvert, SignExtendFrom, TrapCode,
-    TruncateSaturateInto, TryTruncateInto, WazmError, WazmResult, WrapInto, F32, F64,
+    ArithmeticOps, ExtendInto, Float, Integer, LittleEndianConvert, SignExtendFrom, TrapCode, TruncateSaturateInto,
+    TryTruncateInto, WrapInto, F32, F64,
 };
-use byteorder::{BigEndian, ByteOrder, ReadBytesExt};
 use core::{
     fmt::{self, Display},
     ops::{Neg, Shl, Shr},
 };
 use paste::paste;
-use std::io::Cursor;
-
-impl<'a> BinaryFormat<'a> for u64 {
-    type SelfType = u64;
-
-    fn write_binary(&self, sink: &mut Vec<u8>) -> WazmResult<()> {
-        let mut buf: [u8; 8] = [0; 8];
-        BigEndian::write_u64(&mut buf, *self);
-        sink.extend_from_slice(&buf);
-        // leb128::write::unsigned(sink, *self as u64).map_err(|_| WazmError::OutOfBuffer)?;
-        Ok(())
-    }
-
-    fn read_binary(sink: &mut Cursor<&'a [u8]>) -> WazmResult<Self::SelfType> {
-        let raw_offset = sink.read_u64::<BigEndian>().map_err(|_| WazmError::OutOfBuffer)?;
-        // let raw_offset = leb128::read::unsigned(sink).unwrap() as u32;
-        Ok(raw_offset)
-    }
-}
 
 /// An untyped value.
 ///
@@ -37,7 +17,7 @@ impl<'a> BinaryFormat<'a> for u64 {
 pub struct UntypedValue {
     /// This inner value is required to have enough bits to represent
     /// all fundamental WebAssembly types `i32`, `i64`, `f32` and `f64`.
-    bits: u64,
+    pub bits: u64,
 }
 
 impl UntypedValue {
@@ -48,18 +28,6 @@ impl UntypedValue {
     /// Returns the underlying bits of the [`UntypedValue`].
     pub fn to_bits(self) -> u64 {
         self.bits
-    }
-}
-
-impl<'a> BinaryFormat<'a> for UntypedValue {
-    type SelfType = UntypedValue;
-
-    fn write_binary(&self, sink: &mut Vec<u8>) -> WazmResult<()> {
-        self.bits.write_binary(sink)
-    }
-
-    fn read_binary(sink: &mut Cursor<&'a [u8]>) -> WazmResult<Self> {
-        Ok(UntypedValue::from_bits(u64::read_binary(sink)?))
     }
 }
 

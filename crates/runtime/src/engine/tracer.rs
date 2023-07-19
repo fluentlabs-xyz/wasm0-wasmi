@@ -3,15 +3,9 @@ use std::{cell::RefCell, collections::BTreeMap};
 
 use serde::{ser::SerializeStruct, Serialize, Serializer};
 
-use wazm_core::UntypedValue;
+use wazm_core::{InstrMeta, OpCode, UntypedValue};
 
-use crate::{
-    engine::{
-        bytecode::{InstrMeta, Instruction},
-        opcode::OpCode,
-    },
-    Extern,
-};
+use crate::{engine::bytecode::Instruction, Extern};
 
 #[derive(Debug, Clone)]
 pub struct MemoryState {
@@ -51,15 +45,15 @@ impl Serialize for OpCodeState {
         let mut s = serializer.serialize_struct("OpCodeState", 9)?;
         s.serialize_field("pc", &self.program_counter)?;
         s.serialize_field("source_pc", &self.source_pc)?;
-        s.serialize_field("name", self.opcode.name())?;
+        // s.serialize_field("name", self.opcode.name())?;
         s.serialize_field("opcode", &self.code)?;
-        if let Some(drop_keep) = self.opcode.drop_keep() {
-            s.serialize_field("stack_drop", &drop_keep.drop())?;
-            s.serialize_field("stack_keep", &drop_keep.keep())?;
-        }
-        if let Some(params) = self.opcode.params() {
-            s.serialize_field("params", &params)?;
-        }
+        // if let Some(drop_keep) = self.opcode.drop_keep() {
+        //     s.serialize_field("stack_drop", &drop_keep.drop())?;
+        //     s.serialize_field("stack_keep", &drop_keep.keep())?;
+        // }
+        // if let Some(params) = self.opcode.params() {
+        //     s.serialize_field("params", &params)?;
+        // }
         if self.memory_changes.len() > 0 {
             s.serialize_field("memory_changes", &self.memory_changes)?;
         }
@@ -180,7 +174,7 @@ impl Tracer {
         let stack = stack.iter().map(|v| v.to_bits()).collect();
         let opcode_state = OpCodeState {
             program_counter,
-            opcode: OpCode(opcode),
+            opcode,
             memory_changes,
             stack,
             source_pc: meta.source_pc(),

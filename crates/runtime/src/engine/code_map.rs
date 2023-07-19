@@ -1,9 +1,9 @@
 //! Datastructure to efficiently store function bodies and their instructions.
 
 use super::Instruction;
-use crate::engine::bytecode::InstrMeta;
 use alloc::vec::Vec;
 use wazm_arena::ArenaIndex;
+use wazm_core::InstrMeta;
 
 /// A reference to a Wasm function body stored in the [`CodeMap`].
 #[derive(Debug, Copy, Clone)]

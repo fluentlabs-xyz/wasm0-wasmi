@@ -1,6 +1,5 @@
-use std::{collections::BTreeMap, io::Cursor};
-use wazm_core::{BinaryFormat, InstrMeta, JumpDest, Linker, OpCode, WazmError, WazmResult};
-use wazm_wasmi::{Engine, FuncType, Module, ModuleBuilder, ModuleError};
+use std::collections::BTreeMap;
+use wazm_core::{BinaryFormat, BinaryFormatReader, InstrMeta, JumpDest, Linker, OpCode, WazmError, WazmResult};
 
 pub struct CompiledModule {
     bytecode: Vec<OpCode>,
@@ -11,14 +10,12 @@ pub struct CompiledModule {
 
 impl CompiledModule {
     pub fn from_vec(sink: &Vec<u8>) -> WazmResult<CompiledModule> {
-        CompiledModule::from_cursor(Cursor::new(sink))
+        Self::from_slice(sink.as_slice())
     }
 
     pub fn from_slice(sink: &[u8]) -> WazmResult<CompiledModule> {
-        CompiledModule::from_cursor(Cursor::new(sink))
-    }
+        let mut reader = BinaryFormatReader::new(sink);
 
-    pub fn from_cursor(mut sink: Cursor<&[u8]>) -> WazmResult<CompiledModule> {
         let mut bytecode = Vec::new();
         let mut metas = Vec::new();
 
@@ -26,16 +23,16 @@ impl CompiledModule {
         let mut jump_dest = BTreeMap::new();
 
         // read all opcodes from binary
-        while sink.position() < sink.get_ref().len() as u64 {
-            let offset = sink.position();
-            let code = sink.get_ref()[0];
+        while !reader.is_empty() {
+            let offset = reader.pos();
+            let code = reader.sink[0];
 
-            let instr = OpCode::read_binary(&mut sink)?;
+            let instr = OpCode::read_binary(&mut reader).map_err(|e| WazmError::BinaryFormat(e))?;
             println!("{:#04x}: {:?}", offset, instr);
 
             jump_dest.insert(offset as i32, bytecode.len());
             bytecode.push(instr);
-            metas.push(InstrMeta(offset as usize, code));
+            metas.push(InstrMeta(offset, code));
         }
         println!();
 
@@ -92,14 +89,5 @@ impl CompiledModule {
             result += str.as_str();
         }
         result
-    }
-
-    pub fn to_module(&self, engine: &Engine) -> Module {
-        let mut module_builder = ModuleBuilder::new(engine);
-        let empty_type = Result::<FuncType, ModuleError>::Ok(FuncType::empty());
-        module_builder
-            .push_func_types(std::iter::once(empty_type))
-            .expect("failed to push func type");
-        module_builder.finish()
     }
 }

@@ -95,7 +95,7 @@ impl FuncRef {
     /// # Examples
     ///
     /// ```rust
-    /// # use wasmi::{Func, FuncRef, Store, Engine};
+    /// # use wazm_wasmi::{Func, FuncRef, Store, Engine};
     /// # let engine = Engine::default();
     /// # let mut store = <Store<()>>::new(&engine, ());
     /// assert!(FuncRef::new(None).is_null());

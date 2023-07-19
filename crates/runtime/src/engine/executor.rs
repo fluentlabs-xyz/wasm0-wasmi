@@ -1,6 +1,6 @@
 use core::cmp::{self};
 
-use wazm_core::{Pages, UntypedValue};
+use wazm_core::{Fuel, Pages, UntypedValue};
 
 use crate::{
     core::TrapCode,
@@ -132,7 +132,7 @@ const INVALID_GROWTH_ERRCODE: u32 = u32::MAX;
 
 /// An execution context for executing a `wasmi` function frame.
 #[derive(Debug)]
-struct Executor<'ctx, 'engine> {
+pub struct Executor<'ctx, 'engine> {
     /// Stores the value stack of live values on the Wasm stack.
     sp: ValueStackPtr,
     /// The pointer to the currently executed instruction.
@@ -202,7 +202,7 @@ impl<'ctx, 'engine> Executor<'ctx, 'engine> {
 
     /// Executes the function frame until it returns or traps.
     #[inline(always)]
-    fn execute(mut self) -> Result<WasmOutcome, TrapCode> {
+    pub fn execute(mut self) -> Result<WasmOutcome, TrapCode> {
         use Instruction as Instr;
         loop {
             let instr = *self.ip.get();
@@ -212,16 +212,23 @@ impl<'ctx, 'engine> Executor<'ctx, 'engine> {
             self.tracer
                 .pre_opcode_state(self.ip.pc(), instr, self.value_stack.dump_stack(self.sp), &meta);
 
+            println!("step: {:?}, stack: {:?}", instr, self.value_stack.dump_stack(self.sp));
+
             match instr {
-                Instr::LocalGet { local_depth } => self.visit_local_get(local_depth),
-                Instr::LocalSet { local_depth } => self.visit_local_set(local_depth),
-                Instr::LocalTee { local_depth } => self.visit_local_tee(local_depth),
-                Instr::Br(params) => self.visit_br(params),
-                Instr::BrIfEqz(params) => self.visit_br_if_eqz(params),
-                Instr::BrIfNez(params) => self.visit_br_if_nez(params),
-                Instr::BrTable { len_targets } => self.visit_br_table(len_targets),
+                // common opcode family
                 Instr::Unreachable => self.visit_unreachable()?,
-                Instr::ConsumeFuel { amount } => self.visit_consume_fuel(amount)?,
+                Instr::ConsumeFuel(amount) => self.visit_consume_fuel(amount)?,
+                Instr::Drop => self.visit_drop(),
+                Instr::Select => self.visit_select(),
+
+                Instr::LocalGet(local_depth) => self.visit_local_get(local_depth),
+                Instr::LocalSet(local_depth) => self.visit_local_set(local_depth),
+                Instr::LocalTee(local_depth) => self.visit_local_tee(local_depth),
+
+                Instr::Br(branch_params) => self.visit_br(branch_params),
+                Instr::BrIfEqz(branch_params) => self.visit_br_if_eqz(branch_params),
+                Instr::BrIfNez(branch_params) => self.visit_br_if_nez(branch_params),
+                Instr::BrTable(len_targets) => self.visit_br_table(len_targets.0 as usize),
                 Instr::Return(drop_keep) => {
                     if let ReturnOutcome::Host = self.visit_ret(drop_keep) {
                         return Ok(WasmOutcome::Return);
@@ -232,24 +239,19 @@ impl<'ctx, 'engine> Executor<'ctx, 'engine> {
                         return Ok(WasmOutcome::Return);
                     }
                 }
-                Instr::ReturnCall { drop_keep, func } => {
+                Instr::ReturnCall(func, drop_keep) => {
                     forward_call!(self.visit_return_call(drop_keep, func))
                 }
-                Instr::ReturnCallIndirect {
-                    drop_keep,
-                    table,
-                    func_type,
-                } => {
-                    forward_call!(self.visit_return_call_indirect(drop_keep, table, func_type))
+                Instr::ReturnCallIndirect(table, drop_keep) => {
+                    forward_call!(self.visit_return_call_indirect(drop_keep, table, SignatureIdx::from(0)))
                 }
-                Instr::Call(func) => forward_call!(self.visit_call(func)),
-                Instr::CallIndirect { table, func_type } => {
-                    forward_call!(self.visit_call_indirect(table, func_type))
+                Instr::Call(fn_index) => forward_call!(self.visit_call(fn_index)),
+                Instr::CallIndirect(table) => {
+                    forward_call!(self.visit_call_indirect(table, SignatureIdx::from(0)))
                 }
-                Instr::Drop => self.visit_drop(),
-                Instr::Select => self.visit_select(),
                 Instr::GlobalGet(global_idx) => self.visit_global_get(global_idx),
                 Instr::GlobalSet(global_idx) => self.visit_global_set(global_idx),
+
                 Instr::I32Load(offset) => self.visit_i32_load(offset)?,
                 Instr::I64Load(offset) => self.visit_i64_load(offset)?,
                 Instr::F32Load(offset) => self.visit_f32_load(offset)?,
@@ -279,17 +281,17 @@ impl<'ctx, 'engine> Executor<'ctx, 'engine> {
                 Instr::MemoryCopy => self.visit_memory_copy()?,
                 Instr::MemoryInit(segment) => self.visit_memory_init(segment)?,
                 Instr::DataDrop(segment) => self.visit_data_drop(segment),
-                Instr::TableSize { table } => self.visit_table_size(table),
-                Instr::TableGrow { table } => self.visit_table_grow(table)?,
-                Instr::TableFill { table } => self.visit_table_fill(table)?,
-                Instr::TableGet { table } => self.visit_table_get(table)?,
-                Instr::TableSet { table } => self.visit_table_set(table)?,
+                Instr::TableSize(table) => self.visit_table_size(table),
+                Instr::TableGrow(table) => self.visit_table_grow(table)?,
+                Instr::TableFill(table) => self.visit_table_fill(table)?,
+                Instr::TableGet(table) => self.visit_table_get(table)?,
+                Instr::TableSet(table) => self.visit_table_set(table)?,
                 Instr::TableCopy { dst, src } => self.visit_table_copy(dst, src)?,
                 Instr::TableInit { table, elem } => self.visit_table_init(table, elem)?,
                 Instr::ElemDrop(segment) => self.visit_element_drop(segment),
-                Instr::RefFunc { func_index } => self.visit_ref_func(func_index),
-                Instr::I32Const(bytes) => self.visit_const(bytes),
-                Instr::I64Const(bytes) => self.visit_const(bytes),
+                Instr::RefFunc(func_index) => self.visit_ref_func(func_index),
+                Instr::I32Const(value) => self.visit_const(value),
+                Instr::I64Const(value) => self.visit_const(value),
                 Instr::I32Eqz => self.visit_i32_eqz(),
                 Instr::I32Eq => self.visit_i32_eq(),
                 Instr::I32Ne => self.visit_i32_ne(),
@@ -422,6 +424,8 @@ impl<'ctx, 'engine> Executor<'ctx, 'engine> {
                 Instr::I64Extend8S => self.visit_i64_extend8_s(),
                 Instr::I64Extend16S => self.visit_i64_extend16_s(),
                 Instr::I64Extend32S => self.visit_i64_extend32_s(),
+
+                _ => self.visit_unreachable()?,
             }
         }
     }
@@ -443,7 +447,7 @@ impl<'ctx, 'engine> Executor<'ctx, 'engine> {
     fn execute_load_extend(&mut self, offset: Offset, load_extend: WasmLoadOp) -> Result<(), TrapCode> {
         self.sp.try_eval_top(|address| {
             let memory = self.cache.default_memory_bytes(self.ctx);
-            let value = load_extend(memory, address, offset.into_inner())?;
+            let value = load_extend(memory, address, offset.0)?;
             Ok(value)
         })?;
         self.try_next_instr()
@@ -748,11 +752,11 @@ impl<'ctx, 'engine> Executor<'ctx, 'engine> {
     }
 
     #[inline(always)]
-    fn visit_consume_fuel(&mut self, amount: u64) -> Result<(), TrapCode> {
+    fn visit_consume_fuel(&mut self, amount: Fuel) -> Result<(), TrapCode> {
         // We do not have to check if fuel metering is enabled since
         // these `wasmi` instructions are only generated if fuel metering
         // is enabled to begin with.
-        self.ctx.fuel_mut().consume_fuel(amount)?;
+        self.ctx.fuel_mut().consume_fuel(amount.0 as u64)?;
         self.try_next_instr()
     }
 
@@ -810,7 +814,7 @@ impl<'ctx, 'engine> Executor<'ctx, 'engine> {
 
     #[inline(always)]
     fn visit_local_get(&mut self, local_depth: LocalDepth) {
-        let value = self.sp.nth_back(local_depth.into_inner());
+        let value = self.sp.nth_back(local_depth.into_inner() as usize);
         self.sp.push(value);
         self.next_instr()
     }
@@ -818,14 +822,14 @@ impl<'ctx, 'engine> Executor<'ctx, 'engine> {
     #[inline(always)]
     fn visit_local_set(&mut self, local_depth: LocalDepth) {
         let new_value = self.sp.pop();
-        self.sp.set_nth_back(local_depth.into_inner(), new_value);
+        self.sp.set_nth_back(local_depth.into_inner() as usize, new_value);
         self.next_instr()
     }
 
     #[inline(always)]
     fn visit_local_tee(&mut self, local_depth: LocalDepth) {
         let new_value = self.sp.last();
-        self.sp.set_nth_back(local_depth.into_inner(), new_value);
+        self.sp.set_nth_back(local_depth.into_inner() as usize, new_value);
         self.next_instr()
     }
 

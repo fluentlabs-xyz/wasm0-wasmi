@@ -1,5 +1,5 @@
 use crate::compiler::Translator;
-use wazm_core::{Fuel, Index, InstructionSet, Offset, OpCode, UntypedValue, WazmResult, MAX_MEMORY_SIZE};
+use wazm_core::{InstructionSet, OpCode, UntypedValue, WazmResult, MAX_MEMORY_SIZE};
 use wazm_wasmi::Instruction;
 
 impl Translator for Instruction {
@@ -7,59 +7,57 @@ impl Translator for Instruction {
         use wazm_wasmi::Instruction as WI;
         let instr = match *self {
             WI::Unreachable => OpCode::Unreachable,
-            WI::ConsumeFuel { amount } => OpCode::ConsumeFuel(Fuel::from(amount as u32)),
+            WI::ConsumeFuel(fuel) => OpCode::ConsumeFuel(fuel),
             WI::Drop => OpCode::Drop,
             WI::Select => OpCode::Select,
 
-            WI::LocalGet { local_depth } => OpCode::LocalGet(Index::from(local_depth.into_inner() as u32)),
-            WI::LocalSet { local_depth } => OpCode::LocalSet(Index::from(local_depth.into_inner() as u32)),
-            WI::LocalTee { local_depth } => OpCode::LocalTee(Index::from(local_depth.into_inner() as u32)),
+            WI::LocalGet(local_depth) => OpCode::LocalGet(local_depth),
+            WI::LocalSet(local_depth) => OpCode::LocalSet(local_depth),
+            WI::LocalTee(local_depth) => OpCode::LocalTee(local_depth),
 
-            WI::GlobalGet(index) => OpCode::GlobalGet(Index::from(index.into_inner())),
-            WI::GlobalSet(index) => OpCode::GlobalSet(Index::from(index.into_inner())),
+            WI::GlobalGet(index) => OpCode::GlobalGet(index),
+            WI::GlobalSet(index) => OpCode::GlobalSet(index),
 
-            WI::I32Load(offset) => OpCode::I32Load(Offset::from(offset.into_inner())),
-            WI::I64Load(offset) => OpCode::I64Load(Offset::from(offset.into_inner())),
-            WI::F32Load(offset) => OpCode::F32Load(Offset::from(offset.into_inner())),
-            WI::F64Load(offset) => OpCode::F64Load(Offset::from(offset.into_inner())),
-            WI::I32Load8S(offset) => OpCode::I32Load8S(Offset::from(offset.into_inner())),
-            WI::I32Load8U(offset) => OpCode::I32Load8U(Offset::from(offset.into_inner())),
-            WI::I32Load16S(offset) => OpCode::I32Load16S(Offset::from(offset.into_inner())),
-            WI::I32Load16U(offset) => OpCode::I32Load16U(Offset::from(offset.into_inner())),
-            WI::I64Load8S(offset) => OpCode::I64Load8S(Offset::from(offset.into_inner())),
-            WI::I64Load8U(offset) => OpCode::I64Load8U(Offset::from(offset.into_inner())),
-            WI::I64Load16S(offset) => OpCode::I64Load16S(Offset::from(offset.into_inner())),
-            WI::I64Load16U(offset) => OpCode::I64Load16U(Offset::from(offset.into_inner())),
-            WI::I64Load32S(offset) => OpCode::I64Load32S(Offset::from(offset.into_inner())),
-            WI::I64Load32U(offset) => OpCode::I64Load32U(Offset::from(offset.into_inner())),
-            WI::I32Store(offset) => OpCode::I32Store(Offset::from(offset.into_inner())),
-            WI::I64Store(offset) => OpCode::I64Store(Offset::from(offset.into_inner())),
-            WI::F32Store(offset) => OpCode::F32Store(Offset::from(offset.into_inner())),
-            WI::F64Store(offset) => OpCode::F64Store(Offset::from(offset.into_inner())),
-            WI::I32Store8(offset) => OpCode::I32Store8(Offset::from(offset.into_inner())),
-            WI::I32Store16(offset) => OpCode::I32Store16(Offset::from(offset.into_inner())),
-            WI::I64Store8(offset) => OpCode::I64Store8(Offset::from(offset.into_inner())),
-            WI::I64Store16(offset) => OpCode::I64Store16(Offset::from(offset.into_inner())),
-            WI::I64Store32(offset) => OpCode::I64Store32(Offset::from(offset.into_inner())),
+            WI::I32Load(offset) => OpCode::I32Load(offset),
+            WI::I64Load(offset) => OpCode::I64Load(offset),
+            WI::F32Load(offset) => OpCode::F32Load(offset),
+            WI::F64Load(offset) => OpCode::F64Load(offset),
+            WI::I32Load8S(offset) => OpCode::I32Load8S(offset),
+            WI::I32Load8U(offset) => OpCode::I32Load8U(offset),
+            WI::I32Load16S(offset) => OpCode::I32Load16S(offset),
+            WI::I32Load16U(offset) => OpCode::I32Load16U(offset),
+            WI::I64Load8S(offset) => OpCode::I64Load8S(offset),
+            WI::I64Load8U(offset) => OpCode::I64Load8U(offset),
+            WI::I64Load16S(offset) => OpCode::I64Load16S(offset),
+            WI::I64Load16U(offset) => OpCode::I64Load16U(offset),
+            WI::I64Load32S(offset) => OpCode::I64Load32S(offset),
+            WI::I64Load32U(offset) => OpCode::I64Load32U(offset),
+            WI::I32Store(offset) => OpCode::I32Store(offset),
+            WI::I64Store(offset) => OpCode::I64Store(offset),
+            WI::F32Store(offset) => OpCode::F32Store(offset),
+            WI::F64Store(offset) => OpCode::F64Store(offset),
+            WI::I32Store8(offset) => OpCode::I32Store8(offset),
+            WI::I32Store16(offset) => OpCode::I32Store16(offset),
+            WI::I64Store8(offset) => OpCode::I64Store8(offset),
+            WI::I64Store16(offset) => OpCode::I64Store16(offset),
+            WI::I64Store32(offset) => OpCode::I64Store32(offset),
 
             WI::MemorySize => OpCode::I32Const(UntypedValue::from(MAX_MEMORY_SIZE)),
-            WI::MemoryGrow => {
-                println!("using of dummy opcode: {:?}", self);
-                return Ok(());
-            }
-            // WI::MemoryFill => OpCode::MemoryFill,
-            // WI::MemoryCopy => OpCode::MemoryCopy,
-            // WI::MemoryInit(_) => {}
-            // WI::DataDrop(_) => {}
-            // WI::TableSize { .. } => {}
-            // WI::TableGrow { .. } => {}
-            // WI::TableFill { .. } => {}
-            // WI::TableGet { .. } => {}
-            // WI::TableSet { .. } => {}
-            // WI::TableCopy { .. } => {}
-            // WI::TableInit { .. } => {}
-            // WI::ElemDrop(_) => {}
-            // WI::RefFunc { .. } => {}
+            WI::MemoryGrow => OpCode::MemoryGrow,
+            WI::MemoryFill => OpCode::MemoryFill,
+            WI::MemoryCopy => OpCode::MemoryCopy,
+            WI::MemoryInit(index) => OpCode::MemoryInit(index),
+            WI::DataDrop(index) => OpCode::DataDrop(index),
+            WI::TableSize(index) => OpCode::TableSize(index),
+            WI::TableGrow(index) => OpCode::TableGrow(index),
+            WI::TableFill(index) => OpCode::TableFill(index),
+            WI::TableGet(index) => OpCode::TableGet(index),
+            WI::TableSet(index) => OpCode::TableSet(index),
+            WI::TableCopy { .. } => *self,
+            WI::TableInit { .. } => *self,
+            WI::ElemDrop(index) => OpCode::ElemDrop(index),
+            WI::RefFunc(index) => OpCode::RefFunc(index),
+
             WI::I64Const(untyped_value) => OpCode::I64Const(UntypedValue::from(untyped_value.to_bits())),
             WI::I32Const(untyped_value) => OpCode::I32Const(UntypedValue::from(untyped_value.to_bits())),
             WI::I32Eqz => OpCode::I32Eqz,

@@ -1,5 +1,5 @@
 use crate::compiler::Translator;
-use wazm_core::{DropKeep, Index, InstructionSet, Offset, OpCode, WazmResult};
+use wazm_core::{DropKeep, Index, InstructionSet, OpCode, WazmResult};
 
 pub(crate) fn translate_drop_keep(drop_keep: DropKeep) -> WazmResult<Vec<OpCode>> {
     let mut result = Vec::new();
@@ -22,8 +22,7 @@ pub(crate) fn translate_drop_keep(drop_keep: DropKeep) -> WazmResult<Vec<OpCode>
 
 impl Translator for wazm_wasmi::DropKeep {
     fn translate(&self, result: &mut InstructionSet) -> WazmResult<()> {
-        let drop_keep = DropKeep::new(Offset::from(self.drop() as u32), Offset::from(self.keep() as u32));
-        let drop_keep_opcodes = translate_drop_keep(drop_keep)?;
+        let drop_keep_opcodes = translate_drop_keep(*self)?;
         result.0.extend(&drop_keep_opcodes);
         Ok(())
     }
@@ -32,13 +31,13 @@ impl Translator for wazm_wasmi::DropKeep {
 #[cfg(test)]
 mod tests {
     use crate::drop_keep::translate_drop_keep;
-    use wazm_core::{DropKeep, Offset, OpCode};
+    use wazm_core::{DropKeep, OpCode};
 
     #[test]
     fn test_drop_keep_translation() {
         macro_rules! drop_keep {
             ($drop:literal, $keep:literal) => {
-                DropKeep::new(Offset::from($drop), Offset::from($keep))
+                DropKeep::new($drop, $keep)
             };
         }
         let tests = vec![
