@@ -8,9 +8,7 @@ mod translator;
 mod value_stack;
 
 use self::{
-    control_frame::ControlFrame,
-    control_stack::ControlFlowStack,
-    translator::FuncTranslator,
+    control_frame::ControlFrame, control_stack::ControlFlowStack, translator::FuncTranslator,
 };
 pub use self::{
     error::TranslationError,
@@ -77,7 +75,7 @@ impl<'parser> FuncBuilder<'parser> {
     }
 
     /// Updates the current position within the Wasm binary while parsing operators.
-    pub fn update_pos_with_opcode(&mut self, pos: usize, opcode: u8) {
+    pub fn update_pos_with_opcode(&mut self, pos: usize, opcode: u16) {
         self.pos = pos;
         self.translator.register_opcode_metadata(pos, opcode);
     }

@@ -1,58 +1,33 @@
 use alloc::vec::Vec;
 
-use wasmi_core::{F32, F64, ValueType};
+use wasmi_core::{ValueType, F32, F64};
 use wasmparser::VisitOperator;
 
 use crate::{
     engine::{
         bytecode::{
-            self,
-            BranchParams,
-            DataSegmentIdx,
-            ElementSegmentIdx,
-            Instruction,
-            Offset,
-            SignatureIdx,
-            TableIdx,
+            self, BranchParams, DataSegmentIdx, ElementSegmentIdx, Instruction, Offset,
+            SignatureIdx, TableIdx,
         },
         config::FuelCosts,
-        DropKeep,
         func_builder::control_frame::ControlFrameKind,
-        FuncBody,
-        Instr,
-        RelativeDepth,
+        DropKeep, FuncBody, Instr, RelativeDepth,
     },
-    Engine,
-    FuncType,
-    GlobalType,
     module::{
-        BlockType,
-        ConstExpr,
+        BlockType, ConstExpr, FuncIdx, FuncTypeIdx, GlobalIdx, MemoryIdx, ModuleResources,
         DEFAULT_MEMORY_INDEX,
-        FuncIdx,
-        FuncTypeIdx,
-        GlobalIdx,
-        MemoryIdx,
-        ModuleResources,
     },
-    Mutability,
-    Value,
+    Engine, FuncType, GlobalType, Mutability, Value,
 };
 
 use super::{
     control_frame::{
-        BlockControlFrame,
-        ControlFrame,
-        IfControlFrame,
-        LoopControlFrame,
-        UnreachableControlFrame,
+        BlockControlFrame, ControlFrame, IfControlFrame, LoopControlFrame, UnreachableControlFrame,
     },
-    ControlFlowStack,
-    InstructionsBuilder,
     labels::LabelRef,
     locals_registry::LocalsRegistry,
-    TranslationError,
     value_stack::ValueStackHeight,
+    ControlFlowStack, InstructionsBuilder, TranslationError,
 };
 
 /// Reusable allocations of a [`FuncTranslator`].
@@ -123,7 +98,7 @@ impl<'parser> FuncTranslator<'parser> {
             locals: LocalsRegistry::default(),
             alloc,
         }
-            .init()
+        .init()
     }
 
     /// Returns a shared reference to the underlying [`Engine`].
@@ -169,7 +144,7 @@ impl<'parser> FuncTranslator<'parser> {
         self.locals.register_locals(amount);
     }
 
-    pub fn register_opcode_metadata(&mut self, pos: usize, opcode: u8) {
+    pub fn register_opcode_metadata(&mut self, pos: usize, opcode: u16) {
         self.alloc.inst_builder.register_meta(pos, opcode);
     }
 
@@ -283,8 +258,8 @@ impl<'parser> FuncTranslator<'parser> {
     ///
     /// Ignores the `translator` closure if the current code path is unreachable.
     fn translate_if_reachable<F>(&mut self, translator: F) -> Result<(), TranslationError>
-        where
-            F: FnOnce(&mut Self) -> Result<(), TranslationError>,
+    where
+        F: FnOnce(&mut Self) -> Result<(), TranslationError>,
     {
         if self.is_reachable() {
             translator(self)?;
@@ -365,7 +340,7 @@ impl<'parser> FuncTranslator<'parser> {
             drop_keep.drop() + len_params_locals,
             drop_keep.keep(),
         )
-            .map_err(Into::into)
+        .map_err(Into::into)
     }
 
     /// Returns the relative depth on the stack of the local variable.
@@ -527,8 +502,8 @@ impl<'parser> FuncTranslator<'parser> {
     /// - `f32.const`
     /// - `f64.const`
     fn translate_const<T>(&mut self, value: T) -> Result<(), TranslationError>
-        where
-            T: Into<Value>,
+    where
+        T: Into<Value>,
     {
         self.translate_if_reachable(|builder| {
             builder.bump_fuel_consumption(builder.fuel_costs().base);

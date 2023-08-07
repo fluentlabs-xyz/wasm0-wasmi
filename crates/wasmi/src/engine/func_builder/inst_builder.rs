@@ -1,14 +1,13 @@
 //! Abstractions to build up instructions forming Wasm function bodies.
 
 use super::labels::{LabelRef, LabelRegistry};
+use crate::engine::bytecode::InstrMeta;
 use crate::engine::{
     bytecode::{BranchOffset, Instruction},
-    Engine,
-    FuncBody,
+    Engine, FuncBody,
 };
 use alloc::vec::Vec;
 use std::cell::RefCell;
-use crate::engine::bytecode::InstrMeta;
 
 /// A reference to an instruction of the partially
 /// constructed function body of the [`InstructionsBuilder`].
@@ -137,7 +136,7 @@ impl InstructionsBuilder {
         idx
     }
 
-    pub fn register_meta(&mut self, pc: usize, opcode: u8) {
+    pub fn register_meta(&mut self, pc: usize, opcode: u16) {
         self.temp_meta = InstrMeta(pc, opcode);
     }
 

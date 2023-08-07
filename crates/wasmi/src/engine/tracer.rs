@@ -2,14 +2,14 @@ use core::fmt::{Debug, Formatter};
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 
-use serde::{Serialize, Serializer};
 use serde::ser::SerializeStruct;
+use serde::{Serialize, Serializer};
 
 use wasmi_core::UntypedValue;
 
-use crate::{Extern};
 use crate::engine::bytecode::{InstrMeta, Instruction};
 use crate::engine::opcode::OpCode;
+use crate::Extern;
 
 #[derive(Debug, Clone)]
 pub struct MemoryState {
@@ -19,7 +19,10 @@ pub struct MemoryState {
 }
 
 impl Serialize for MemoryState {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
         let mut s = serializer.serialize_struct("MemoryState", 3)?;
         s.serialize_field("offset", &self.offset)?;
         s.serialize_field("len", &self.len)?;
@@ -35,11 +38,14 @@ pub struct OpCodeState {
     pub memory_changes: Vec<MemoryState>,
     pub stack: Vec<u64>,
     pub source_pc: u32,
-    pub code: u8,
+    pub code: u16,
 }
 
 impl Serialize for OpCodeState {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
         let mut s = serializer.serialize_struct("OpCodeState", 9)?;
         s.serialize_field("pc", &self.program_counter)?;
         s.serialize_field("source_pc", &self.source_pc)?;
@@ -71,7 +77,10 @@ pub struct FunctionMeta {
 }
 
 impl Serialize for FunctionMeta {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
         let mut s = serializer.serialize_struct("FunctionMeta", 3)?;
         s.serialize_field("fn_index", &self.fn_index)?;
         s.serialize_field("max_stack_height", &self.max_stack_height)?;
@@ -88,7 +97,10 @@ pub struct GlobalVariable {
 }
 
 impl Serialize for GlobalVariable {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
         let mut s = serializer.serialize_struct("GlobalVariable", 3)?;
         s.serialize_field("index", &self.index)?;
         s.serialize_field("value", &self.value)?;
@@ -109,12 +121,19 @@ pub struct Tracer {
 
 impl Debug for Tracer {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        write!(f, "global_memory: {:?}; logs: {:?}; memory_changes: {:?}; fns_meta: {:?}", self.global_memory, self.logs, self.memory_changes, self.fns_meta)
+        write!(
+            f,
+            "global_memory: {:?}; logs: {:?}; memory_changes: {:?}; fns_meta: {:?}",
+            self.global_memory, self.logs, self.memory_changes, self.fns_meta
+        )
     }
 }
 
 impl Serialize for Tracer {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
         let mut s = serializer.serialize_struct("Tracer", 3)?;
         s.serialize_field("global_memory", &self.global_memory)?;
         s.serialize_field("logs", &self.logs)?;
@@ -125,12 +144,7 @@ impl Serialize for Tracer {
 }
 
 impl Tracer {
-    pub fn global_memory(
-        &mut self,
-        offset: u32,
-        len: u32,
-        memory: &[u8],
-    ) {
+    pub fn global_memory(&mut self, offset: u32, len: u32, memory: &[u8]) {
         self.global_memory.push(MemoryState {
             offset,
             len,
@@ -161,10 +175,7 @@ impl Tracer {
         meta: &InstrMeta,
     ) {
         let memory_changes = self.memory_changes.replace(Vec::new());
-        let stack = stack
-            .iter()
-            .map(|v| v.to_bits())
-            .collect();
+        let stack = stack.iter().map(|v| v.to_bits()).collect();
         let opcode_state = OpCodeState {
             program_counter,
             opcode: OpCode(opcode),
@@ -194,9 +205,7 @@ impl Tracer {
         num_locals: usize,
         fn_name: String,
     ) {
-        let resolved_name = self.extern_names
-            .get(&fn_index)
-            .unwrap_or(&fn_name);
+        let resolved_name = self.extern_names.get(&fn_index).unwrap_or(&fn_name);
         self.fns_meta.push(FunctionMeta {
             fn_index,
             max_stack_height: max_stack_height as u32,
@@ -205,23 +214,14 @@ impl Tracer {
         })
     }
 
-    pub fn global_variable(
-        &mut self,
-        value: UntypedValue,
-        index: u32,
-    ) {
+    pub fn global_variable(&mut self, value: UntypedValue, index: u32) {
         self.global_variables.push(GlobalVariable {
             value: value.to_bits(),
             index,
         })
     }
 
-    pub fn memory_change(
-        &mut self,
-        offset: u32,
-        len: u32,
-        memory: &[u8],
-    ) {
+    pub fn memory_change(&mut self, offset: u32, len: u32, memory: &[u8]) {
         self.memory_changes.borrow_mut().push(MemoryState {
             offset,
             len,
